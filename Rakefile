@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'bundler/gem_tasks'
-
 desc 'Generate a secure session secret'
 task 'generate:session_secret' do
   require 'base64'

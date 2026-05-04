@@ -11,26 +11,38 @@ module SecureBiddingApp
     end
 
     def call(username:, password:)
-      raise UnauthorizedError, 'Username and password required' if username.to_s.strip.empty? || password.to_s.empty?
+      validate_params(username, password)
+      fetch_and_format_account(username)
+    rescue ApiClient::ApiError => e
+      handle_api_error(e)
+    end
 
-      # WEEK 1 PLACEHOLDER: API does not yet have /auth/authenticate endpoint
-      # For now, fetch account by username and validate password locally
-      # In Week 4+, this will call a proper /auth/authenticate endpoint
-      
+    private
+
+    def validate_params(username, password)
+      return unless username.to_s.strip.empty? || password.to_s.empty?
+
+      raise UnauthorizedError, 'Username and password required'
+    end
+
+    def fetch_and_format_account(username)
       response = @client.get('/accounts/search', params: { email: username })
-      
-      # Since password validation is not yet in API, this is a stub
-      # In production, verify password against a hash
       raise UnauthorizedError, 'Account not found' if response.empty? || response['id'].nil?
 
+      format_account(response)
+    end
+
+    def format_account(response)
       {
         'id' => response['id'],
         'username' => response['username'],
         'email' => response['email'],
         'include' => response['include'] || { 'system_roles' => [] }
       }
-    rescue ApiClient::ApiError => e
-      raise UnauthorizedError, "Authentication failed: #{e.message}" if e.status == 403
+    end
+
+    def handle_api_error(error)
+      raise UnauthorizedError, "Authentication failed: #{error.message}" if error.status == 403
 
       raise
     end

@@ -1,6 +1,7 @@
 # Secure Bidding App
 
-A secure platform for transparent bidding on projects. This is a server-rendered web frontend built with Roda and Slim, integrated with the Secure Bidding API.
+A secure platform for transparent bidding on projects.
+This is a server-rendered web frontend built with Roda and Slim.
 
 ## Quick Start
 
@@ -28,7 +29,7 @@ A secure platform for transparent bidding on projects. This is a server-rendered
    cp config/secrets.example.yml config/secrets.yml
    bundle exec rake generate:session_secret
    ```
-   
+
    Copy the generated secret into `config/secrets.yml` under the desired environment.
 
 4. Start the application:
