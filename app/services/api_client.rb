@@ -18,8 +18,8 @@ module SecureBiddingApp
       end
     end
 
-    def initialize(config)
-      @config = config
+    def initialize(base_url)
+      @base_url = base_url
     end
 
     def get(path, params: {})
@@ -44,7 +44,7 @@ module SecureBiddingApp
     private
 
     def url(path)
-      "#{@config.API_URL}#{path}"
+      "#{@base_url}#{path}"
     end
 
     def parse(response)

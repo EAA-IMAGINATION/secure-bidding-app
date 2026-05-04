@@ -1,21 +1,31 @@
 # frozen_string_literal: true
 
-desc 'Generate a secure session secret'
-task 'generate:session_secret' do
-  require 'base64'
-  secret = Base64.urlsafe_encode64(SecureRandom.random_bytes(48))
-  puts "Add this to config/secrets.yml under the desired environment:"
-  puts "  SESSION_SECRET: #{secret}"
+require 'bundler/setup'
+
+namespace :generate do
+  task :session_secret do
+    require 'securerandom'
+    secret = SecureRandom.random_bytes(32)
+    encoded = Base64.strict_encode64(secret)
+    puts "SESSION_SECRET=#{encoded}"
+    puts "\nAdd this to config/secrets.yml"
+  end
 end
 
-desc 'Run the app in development'
-task 'run:dev' do
-  system 'bundle exec rackup -p 9292'
+namespace :run do
+  task :dev do
+    system 'bundle exec rackup -p 9292'
+  end
 end
 
-desc 'Run tests'
 task :spec do
-  system 'bundle exec ruby -I lib:spec spec/*_spec.rb'
+  system(
+    'bundle exec ruby -I lib:spec '\
+    'spec/api_client_spec.rb '\
+    'spec/app_spec.rb '\
+    'spec/auth_spec.rb '\
+    'spec/authenticate_account_spec.rb'
+  )
 end
 
 task default: :spec

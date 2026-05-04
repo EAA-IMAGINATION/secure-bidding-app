@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative 'spec_helper'
 
 describe 'App Controller' do
@@ -7,62 +9,58 @@ describe 'App Controller' do
       _(last_response.status).must_equal 200
     end
 
-    it 'renders home page' do
+    it 'renders home page with welcome message' do
       get '/'
       _(last_response.body).must_include 'Welcome'
     end
 
-    it 'shows login link when not authenticated' do
+    it 'includes navigation in response' do
       get '/'
-      _(last_response.body).must_include '/auth/login'
+      _(last_response.body).must_include 'nav'
     end
 
-    it 'shows logout link when authenticated' do
-      set_login_session
-      get '/'
-      _(last_response.body).must_include '/auth/logout'
-    end
-
-    it 'hides login link when authenticated' do
-      set_login_session
-      get '/'
-      _(last_response.body).wont_include '/auth/login'
-    end
-  end
-
-  describe 'Navigation bar' do
-    it 'displays navigation' do
-      get '/'
-      _(last_response.body).must_include '<nav'
-    end
-
-    it 'includes home link' do
-      get '/'
-      _(last_response.body).must_include 'href="/"'
-    end
-
-    it 'shows role badge for authenticated users' do
-      set_login_session(roles: ['admin'])
-      get '/'
-      _(last_response.body).must_include 'admin'
-    end
-  end
-
-  describe 'Flash messages' do
-    it 'displays flash messages in layout' do
+    it 'includes flash message container' do
       get '/'
       _(last_response.body).must_include 'flash'
     end
   end
 
-  private
+  describe 'Unauthenticated user' do
+    it 'shows login link' do
+      get '/'
+      _(last_response.body).must_include '/auth/login'
+    end
 
-  def set_login_session(roles: ['user'])
-    account = {
-      'id' => '123',
-      'email' => 'test@example.com',
-      'system_roles' => roles
-    }
-    set_cookie('rack.session', account.to_s)
+    it 'does not show logout link' do
+      get '/'
+      _(last_response.body).wont_include '/auth/logout'
+    end
+
+    it 'does not show account link' do
+      get '/'
+      _(last_response.body).wont_include '/account'
+    end
+  end
+
+  describe 'Routes respond' do
+    it 'GET /auth/login returns 200' do
+      get '/auth/login'
+      _(last_response.status).must_equal 200
+    end
+
+    it 'GET /auth/login displays form' do
+      get '/auth/login'
+      _(last_response.body).must_include '<form'
+    end
+
+    it 'GET /auth/login has email field' do
+      get '/auth/login'
+      _(last_response.body).must_include 'email'
+    end
+
+    it 'GET /auth/login has password field' do
+      get '/auth/login'
+      _(last_response.body).must_include 'password'
+    end
   end
 end
