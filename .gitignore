@@ -1,0 +1,53 @@
+# Secrets and configuration
+config/secrets.yml
+config/secrets.local.yml
+.env
+.env.local
+
+# Logs
+*.log
+log/
+
+# Temporary files
+tmp/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Dependencies
+.bundle/
+vendor/bundle
+node_modules/
+Gemfile.lock
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Ruby
+.ruby-version
+.ruby-gemset
+
+# Rubocop
+.rubocop-https*
+
+# Testing
+coverage/
+test_results/
+
+# Build artifacts
+dist/
+build/
+
+# Session/state files (except tracked ones)
+.claude/*
+!.claude/CLAUDE.md
+!.claude/settings.json
+!.claude/skills/
+!.claude/plans/
+
+# OS
+Thumbs.db

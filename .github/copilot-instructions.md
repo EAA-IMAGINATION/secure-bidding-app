@@ -17,16 +17,31 @@ The developer is the sole author. Commit messages should reflect this clearly.
    set.
 4. If a requested implementation is outside current week scope, defer it and
    document it as future roadmap work only.
+5. Reference each week's specification: See `.github/weekly-specifications/week-N.md`
+6. Use the reference repo (https://github.com/ISS-Security/tyto2026-app) as an
+   architectural guide but do not exceed specified scope.
+
+## Project Type: Ruby/Roda Web App (Not a Separate Frontend)
+
+This is a **server-rendered web frontend** built with Roda (same framework as the
+API). It is a thin presentation layer over the Secure Bidding API; the API holds
+the database and enforces authorization. This app handles:
+
+- Session management (cookie-based)
+- Login/logout flows
+- Form rendering with Slim templates
+- Flash messages for errors/notices
+- Role-based UI (show/hide buttons based on roles)
 
 ## Backend: Secure Bidding API Reference
 
-The frontend consumes a Ruby/Roda REST API at `http://localhost:9292/api/v1`.
+The app consumes a Ruby/Roda REST API at `http://localhost:9292/api/v1`.
 
-### Core API Endpoints
+### Core API Endpoints (Week 1 Relevant)
 
 **Authentication (Future):**
 - Authentication and authorization not yet implemented in API
-- All current endpoints are open (future weeks will add auth)
+- All current endpoints are open (auth comes in Week 1 of app)
 
 **Accounts:**
 - `GET /api/v1/accounts` - List all accounts
@@ -64,14 +79,6 @@ The frontend consumes a Ruby/Roda REST API at `http://localhost:9292/api/v1`.
 - **ProjectMembership**: Account assigned to project with role (e.g., bidder, owner)
 - **Payment**: Payment record for bid submission access/viewing
 
-### Security Notes for Frontend
-
-- Backend enforces encrypted storage for PII (email, phone)
-- Bid data is encrypted at rest
-- No authentication layer exists yet (add in future weeks per spec)
-- Frontend should never store passwords in local storage
-- When auth is added, use JWT token in Authorization header
-
 ## Project Skills and Rules
 
 ### 1. Feature Branch Workflow
@@ -85,140 +92,178 @@ If on `main` or `master`, create/switch to a feature branch immediately.
 **When to use:** At the start of every new feature.
 
 **Workflow:**
-1. Create a branch named for the feature (example: `1-account-signup`)
+1. Create a branch named for the feature (example: `1-authenticated-sessions`)
 2. Implement and test on that branch only
 3. Create a pull request for review before merging
 
-### 2. Weekly Scope Gating
-
-**Rule:** Only implement features specified in the current week's assignment.
-
-**When to use:** At the beginning of every weekly assignment task.
-
-- Map requirements to the smallest relevant feature set
-- Defer out-of-scope features with clear future-roadmap documentation
-- Do not implement auth, payments, or advanced features early
-- Follow the professor's stated weekly increments
-
-### 3. Component/Module Architecture
+### 2. Controller/Service/View Architecture (Roda Pattern)
 
 **Rule:** Maintain strict separation of concerns.
 
-- **Components** (`src/components/`): UI elements (buttons, forms, cards)
-- **Pages** (`src/pages/`): Full page views (dashboard, project list)
-- **Services** (`src/services/`): API calls and business logic
-- **State** (`src/state/` or store): Centralized state management (if using)
-- **Utils** (`src/utils/`): Helpers (formatting, validation, parsing)
-- **Tests** (`src/**/*.test.js`): Colocated with their implementation
+- **Controllers** (`app/controllers/`): HTTP request handlers (Roda-based)
+  - Define routes with `route` and `routing` blocks
+  - Delegate business logic to services
+  - Render views with `view` or redirect with `routing.redirect`
+  - Store user data in `session[:current_account]`
+  
+- **Services** (`app/services/`): Business logic and API integration
+  - Handle all HTTP calls to backend API
+  - Raise descriptive errors on API failures
+  - Return parsed, validated data to controllers
+  - Examples: `AuthenticateAccount`, `CreateBidSubmission`
 
-Each feature should have a clear boundary. Services handle API integration;
-components handle rendering; pages orchestrate everything.
+- **Views** (`app/presentation/views/`): Slim templates
+  - Use Slim for HTML rendering
+  - Include layout template: `layout.slim`
+  - Use partials for reusable components (prefix with `_`)
+  - Conditionally render based on `@current_account` for role-based UI
 
-### 4. API Integration Patterns
+**Pattern:**
+```
+# app/controllers/auth.rb
+route('auth') do |routing|
+  routing.post 'login' do
+    account = AuthenticateAccount.new(App.config).call(...)
+    session[:current_account] = account
+    routing.redirect '/'
+  end
+end
 
-**Rule:** Isolate all API calls in service modules.
+# app/services/authenticate_account.rb
+class AuthenticateAccount
+  def call(username:, password:)
+    response = @client.post('/auth/authenticate', {...})
+    response['attributes']
+  end
+end
+```
+
+### 3. API Integration Patterns
+
+**Rule:** Isolate all API calls in service modules using `ApiClient`.
 
 **When to use:** Before adding any feature that fetches or posts data.
 
 **Pattern:**
-```js
-// src/services/accountService.js
-export async function getAccounts() {
-  const response = await fetch('http://localhost:9292/api/v1/accounts');
-  if (!response.ok) throw new Error('Failed to fetch accounts');
-  return response.json();
-}
+```ruby
+# app/services/api_client.rb
+class ApiClient
+  def get(path, params: {})
+    parse(HTTP.get(url(path)))
+  end
 
-export async function createAccount(username, email, password, phone, system_role) {
-  const response = await fetch('http://localhost:9292/api/v1/accounts', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, email, password, phone, system_role })
-  });
-  if (!response.ok) throw new Error('Failed to create account');
-  return response.json();
-}
+  def post(path, body)
+    parse(HTTP.post(url(path), json: body))
+  end
+end
+
+# app/services/some_service.rb
+class SomeService
+  def initialize(config)
+    @client = ApiClient.new(config)
+  end
+
+  def call
+    @client.post('/api/v1/endpoint', { key: 'value' })
+  end
+end
 ```
 
 - Always check response status before parsing JSON
-- Throw errors with descriptive messages
+- Raise `ApiClient::ApiError` with status and message on non-2xx responses
 - Return parsed JSON on success
 - Keep error handling in the service layer
+- Catch service errors in controllers and set flash messages
 
-### 5. Frontend Testing
+### 4. Session and Authentication
 
-**Rule:** Write tests for components, services, and page logic.
+**Rule:** Use `Rack::Session::Cookie` for signed, encrypted cookies.
 
-**When to use:** Before or alongside feature implementation (Red-Green-Refactor).
+**When to use:** When storing user data between requests.
 
-**Patterns:**
-- Use Jest (or Vitest) for unit tests
-- Use React Testing Library (or equivalent) for component tests
-- Write HAPPY and SAD path tests for all forms and API calls
-- Mock API calls in tests; do not make real HTTP requests
-- Clear state/cache between tests
+**Pattern:**
+```ruby
+# config/environments.rb
+use Rack::Session::Cookie,
+    expire_after: ONE_MONTH,
+    secret: config.SESSION_SECRET
 
-**Example (Jest + React Testing Library):**
-```js
-describe('AccountForm', () => {
-  it('submits form with valid data', async () => {
-    const { getByLabelText, getByRole } = render(<AccountForm />);
-    fireEvent.change(getByLabelText(/username/i), { target: { value: 'demo' } });
-    fireEvent.click(getByRole('button', { name: /submit/i }));
-    // assert success state
-  });
+# In controllers
+session[:current_account] = account  # Store on login
+@current_account = session[:current_account]  # Access user
+session[:current_account] = nil  # Clear on logout
+```
 
-  it('shows error on failed submission', async () => {
-    jest.spyOn(accountService, 'createAccount').mockRejectedValue(new Error('Network error'));
-    // render, interact, assert error message
-  });
-});
+- Never store passwords in session
+- Store only non-sensitive account info (username, email, roles)
+- Set `@current_account` in route handler for use in views
+- Use `require_login!(routing)` helper to guard routes
+
+### 5. Flash Messages
+
+**Rule:** Use Roda's flash plugin for error/notice messages.
+
+**When to use:** After form submission, login, logout, or error conditions.
+
+**Pattern:**
+```ruby
+# In controller
+flash[:error] = 'Login failed'
+flash[:notice] = 'Welcome back!'
+flash.now[:error] = 'Display immediately without redirect'
+
+# In view (app/presentation/views/flash_bar.slim)
+- if flash[:error]
+  div class="alert alert-danger"
+    = flash[:error]
+- if flash[:notice]
+  div class="alert alert-success"
+    = flash[:notice]
 ```
 
 ### 6. Build and Development Commands
 
-**Rule:** Keep build and test commands simple and documented.
+**Rule:** Keep build and test commands simple and consistent with the API.
 
 **Core commands:**
 ```bash
-npm install              # Install dependencies
-npm run dev             # Start dev server (likely localhost:3000 or 5173)
-npm run build           # Build for production
-npm run test            # Run all tests
-npm run test:watch     # Run tests in watch mode
-npm run lint            # Run linter (ESLint)
-npm run format          # Format code (Prettier)
+bundle install              # Install dependencies
+bundle exec rackup -p 9292 # Start dev server (localhost:9292)
+bundle exec rake spec       # Run tests (when added)
 ```
 
 Before committing:
 ```bash
-npm run test
-npm run lint
+bundle exec rake spec       # Run tests
 ```
 
-### 7. State Management (If Applicable)
+### 7. Role-Based UI Patterns
 
-**Rule:** Choose state management scope based on weekly requirements.
+**Rule:** Hide/show UI elements based on roles without enforcing authorization
+(API enforces; app only shows appropriate UI).
 
-**Week 1-2 (Simple):** Use React hooks (`useState`, `useContext`) for local state
+**Pattern:**
+```slim
+- if @current_account
+  - if system_roles_of(@current_account).include?('admin')
+    button Delete User
 
-**Week 3+ (Complex):** Introduce Redux, Zustand, or similar if spec requires
+- else
+  a href="/auth/login" Login
+```
 
-**Pattern:** Keep state in services/context; pass down through props or context
+Helpers (in controller):
+```ruby
+def system_roles_of(current_account)
+  current_account&.dig('include', 'system_roles') || []
+end
 
-### 8. Security-First Frontend
+def admin?(current_account)
+  system_roles_of(current_account).include?('admin')
+end
+```
 
-**Rule:** Never expose or transmit sensitive data unnecessarily.
-
-- Never store passwords in local storage
-- Use environment variables for API URLs (e.g., `REACT_APP_API_URL`)
-- Never log passwords or auth tokens
-- Use HTTPS in production (enforce with CSP headers)
-- Validate user input before sending to API
-- Escape output to prevent XSS
-- Do not hardcode secrets or API keys in source code
-
-### 9. Markdown Linting
+### 8. Markdown Linting
 
 **Rule:** After editing any `.md` file, always run markdown linting before finishing.
 
@@ -226,29 +271,29 @@ npm run lint
 npx markdownlint-cli2 "**/*.md" "#node_modules" 2>&1
 ```
 
-### 10. Commit Authorship
+### 9. Commit Authorship
 
 **Rule:** Commit only after tests pass, keep message short/meaningful, NEVER add
 any AI co-author trailer, and ask whether to push.
 
 **Workflow:**
-1. Run `npm run test` and `npm run lint` to ensure all checks pass
+1. Run `bundle exec rake spec` to ensure all checks pass
 2. Stage files: `git add .`
-3. Create commit with short, meaningful message: `git commit -m "Add account login form"`
+3. Create commit with short, meaningful message: `git commit -m "Add login form and session handling"`
 4. Ask the developer: "Ready to push to remote?"
 
 **Hard Stop:** If draft message contains `Co-authored-by: Copilot` or any AI
 co-author trailer, remove it immediately before presenting or running commit.
 
-### 11. Delivery Checkpoint
+### 10. Delivery Checkpoint
 
 **Rule:** At end of weekly implementation, run full test suite, prepare staged
 commit, and ask developer to execute final push.
 
 **Checklist:**
-- [ ] All tests pass: `npm run test`
-- [ ] Linter passes: `npm run lint`
-- [ ] README updated if needed
+- [ ] All tests pass: `bundle exec rake spec`
+- [ ] No console errors in manual testing
+- [ ] Flash messages display correctly
 - [ ] No unresolved TODO comments
 - [ ] Commit message is clear and short
 - [ ] No AI co-author trailers in commit
@@ -257,51 +302,75 @@ commit, and ask developer to execute final push.
 
 ## Architecture
 
-This is a React (or framework-agnostic) frontend for the Secure Bidding API.
+This is a Roda-based web frontend for the Secure Bidding API.
 
 ### Directory Structure
 
 ```
-src/
-├── components/          # Reusable UI components
-├── pages/              # Full page views
-├── services/           # API calls and business logic
-├── state/              # State management (context, Redux, etc.)
-├── utils/              # Helper functions
-├── styles/             # Global and component styles
-├── App.js              # Main app component
-└── index.js            # Entry point
-
-public/                 # Static assets
-tests/                  # Test files (or colocate with components)
-.env.example            # Environment variable template
-.github/
-├── copilot-instructions.md  # This file
-└── skills/              # Future skill modules (TBD)
+app/
+├── controllers/              # Roda route handlers
+│   ├── app.rb              # Main app + root routes
+│   └── auth.rb             # /auth/login, /auth/logout
+├── services/               # Business logic and API calls
+│   ├── api_client.rb       # HTTP client wrapper
+│   ├── authenticate_account.rb
+│   ├── create_account.rb
+│   └── ...
+├── presentation/
+│   ├── views/              # Slim templates
+│   │   ├── layout.slim     # Main layout template
+│   │   ├── nav.slim        # Navigation bar
+│   │   ├── flash_bar.slim  # Flash messages
+│   │   ├── home.slim       # Home page
+│   │   ├── login.slim      # Login form
+│   │   └── account.slim    # Account overview
+│   ├── assets/             # CSS/JS
+│   │   └── style.css
+│   └── public/             # Static files
+│       └── logo.png
+config/
+├── environments.rb         # App config, session setup
+└── secrets.example.yml     # Secrets template
+spec/                       # Tests (when added)
+require_app.rb             # Bulk require helper
+config.ru                  # Rack entry point
+Gemfile                    # Dependencies
 ```
+
+### Dependencies (Core)
+
+- `roda` - Web framework
+- `slim` - Template engine
+- `rack-session` - Cookie-based sessions
+- `http` - HTTP client for API calls
+- `figaro` - Environment variable management
+- `rbnacl` - Cryptography (via Secure Bidding API integration)
+
+Development gems:
+
+- `puma` - Application server
+- `pry` - Interactive console
+- `bundler-audit` - Security vulnerability scanning
+- `rubocop` - Linter
+
+Test gems:
+
+- `rack-test` - HTTP testing helpers
+- `minitest` - Test framework
 
 ### Environment Variables
 
-Create `.env` in the project root (copy from `.env.example`):
+Create `.env` equivalent in `config/secrets.yml` (copy from
+`config/secrets.example.yml`):
 
+```yaml
+development:
+  API_URL: http://localhost:9292/api/v1
+  APP_URL: http://localhost:9292
+  SESSION_SECRET: <generate with `rake generate:session_secret`>
 ```
-REACT_APP_API_URL=http://localhost:9292/api/v1
-```
 
-Do NOT commit `.env` with real secrets.
-
-### Dependencies (Typical)
-
-- `react` - UI framework
-- `react-dom` - React DOM rendering
-- `react-router-dom` - Client-side routing
-- `axios` or `fetch` - HTTP client (choose one)
-- `jest` - Testing framework
-- `@testing-library/react` - React component testing
-- `eslint` - Linter
-- `prettier` - Code formatter
-
-Development setup will specify exact versions per week.
+Do NOT commit `config/secrets.yml` with real secrets.
 
 ## API Startup and Testing
 
@@ -317,105 +386,75 @@ bundle exec rake db:seed
 bundle exec rackup -p 9292
 
 # Terminal 2: Frontend (from secure-bidding-app/)
-npm install
-npm run dev
+bundle install
+cp config/secrets.example.yml config/secrets.yml
+bundle exec rake generate:session_secret
+# paste the printed value into config/secrets.yml
+bundle exec rackup -p 9292
 ```
+
+Visit `http://localhost:9292/` in your browser.
 
 To verify API is accessible:
 ```bash
 curl http://localhost:9292/
-# Expected: {"message":"Secure Bidding API v1.0","status":"ok"}
+# Expected: Home page HTML
 ```
 
 ## Key Conventions
 
 ### Naming
 
-- Use kebab-case for file names: `account-form.js`, `project-list.js`
-- Use PascalCase for component names: `AccountForm`, `ProjectList`
-- Use camelCase for variables and functions: `getAccounts()`, `currentProject`
+- Use snake_case for file names: `authenticate_account.rb`, `auth.rb`
+- Use CamelCase for class names: `AuthenticateAccount`, `ApiClient`
+- Use snake_case for methods and variables: `current_account`, `authenticate_user`
+- Routes use lowercase: `/auth/login`, `/account/username`
 
 ### Code Organization
 
-- One component per file
-- Import statements at the top, internal dependencies first, external last
-- Keep components small and focused (single responsibility)
+- One service class per file
+- One controller module per route namespace
+- Keep templates small; extract partials for reusability
 - Use descriptive variable names
 
-### API Response Handling
+### Error Handling
 
-- Assume successful responses return JSON with 200/201 status
-- Error responses return JSON with 400/404 status and `{ error: "message" }`
-- Always validate before using API data
+- Services raise `ApiClient::ApiError` on API failures
+- Controllers catch errors and set flash messages
+- Controllers return appropriate HTTP status codes (400 on form error, 401 on auth failure)
 
-### Component Patterns
+### Response Patterns
 
-```jsx
-// Simple functional component with hooks
-export function AccountCard({ account }) {
-  return (
-    <div className="card">
-      <h3>{account.username}</h3>
-      <p>ID: {account.id}</p>
-    </div>
-  );
-}
-
-// Component with API call
-export function AccountList() {
-  const [accounts, setAccounts] = useState([]);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    accountService.getAccounts()
-      .then(setAccounts)
-      .catch(err => setError(err.message));
-  }, []);
-
-  if (error) return <div>Error: {error}</div>;
-  return (
-    <div>
-      {accounts.map(account => <AccountCard key={account.id} account={account} />)}
-    </div>
-  );
-}
-```
-
-### Testing Patterns
-
-- Test component rendering
-- Test user interactions (clicks, form submissions)
-- Test API integration with mocked calls
-- Test error states
-- Use descriptive test names
+- Success: Render view or redirect with `flash[:notice]`
+- Validation failure: Re-render form with `flash.now[:error]` and 400 status
+- Authorization failure: Redirect to login with `flash[:error]`
+- API error: Display error message in flash
 
 ## Current Focus
 
-- Weekly incremental feature delivery per professor's assignment
-- Tight API integration with secure-bidding-api
-- Comprehensive testing with HAPPY/SAD paths
-- Security-first patterns (no secrets in code, no password logging)
-- Clean separation of concerns (components, services, state)
+- Week 1: Authenticated sessions, login/logout, role-based UI
+- Follow weekly specifications: `.github/weekly-specifications/week-N.md`
+- Use reference repo as architectural guide
+- Never exceed current week's scope
 
 ## Future Capability Skills (Reference Only)
 
 These will be created and used only when weekly specs require them:
 
-- `.github/skills/authentication-flow.md` (JWT, session management)
 - `.github/skills/encryption-ui.md` (Display/input for encrypted bids)
-- `.github/skills/role-based-ui.md` (Conditional rendering based on roles)
-- `.github/skills/payment-flow.md` (Payment integration and verification)
-- `.github/skills/form-validation.md` (Client-side validation rules)
+- `.github/skills/role-based-authorization.md` (Project-scoped roles)
+- `.github/skills/payment-flow.md` (Payment integration)
+- `.github/skills/bid-submission-flow.md` (Full bid lifecycle)
 
 ## References
 
 - API Repo: <https://github.com/EAA-IMAGINATION/secure-bidding-api>
 - Frontend Repo: <https://github.com/EAA-IMAGINATION/secure-bidding-app>
-- API Documentation: See `PROJECT_CONTEXT.md` in secure-bidding-api
-- Weekly Assignments: Provided by professor
+- Reference Web App: <https://github.com/ISS-Security/tyto2026-app/tree/1-authenticated-sessions>
+- Weekly Assignments: `.github/weekly-specifications/week-N.md`
 
 ---
 
 **Last Updated:** 2026-05-04  
-**Status:** Initial setup for frontend development  
-**Next Step:** Confirm framework choice (React/Vue/Vanilla) and create Week 1 project scaffold
+**Status:** Updated for Roda/Ruby web app architecture  
+**Next Step:** See `.github/weekly-specifications/week-1.md` for implementation
