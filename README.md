@@ -14,17 +14,20 @@ This is a server-rendered web frontend built with Roda and Slim.
 ### Installation
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/EAA-IMAGINATION/secure-bidding-app.git
    cd secure-bidding-app
    ```
 
 2. Install dependencies:
+
    ```bash
    bundle install
    ```
 
 3. Setup secrets:
+
    ```bash
    cp config/secrets.example.yml config/secrets.yml
    bundle exec rake generate:session_secret
@@ -117,6 +120,7 @@ README.md                  # This file
 
 Sessions are stored in signed, encrypted cookies with a 30-day expiration.
 Session data includes:
+
 - `id` (user UUID)
 - `username` (string)
 - `email` (string, decrypted by API)
@@ -139,6 +143,7 @@ See `.github/weekly-specifications/week-1.md` for detailed requirements.
 ## Dependencies
 
 Core gems:
+
 - `roda` - Web framework
 - `slim` - Template engine
 - `rack-session` - Cookie-based sessions
@@ -147,6 +152,7 @@ Core gems:
 - `rbnacl` - Cryptography
 
 Development gems:
+
 - `pry` - Interactive console
 - `bundler-audit` - Security scanning
 - `rubocop` - Linter
@@ -155,7 +161,6 @@ Development gems:
 ## References
 
 - **API Repository:** https://github.com/EAA-IMAGINATION/secure-bidding-api
-- **Reference App:** https://github.com/ISS-Security/tyto2026-app/tree/1-authenticated-sessions
 - **Weekly Specifications:** `.github/weekly-specifications/`
 - **Copilot Instructions:** `.github/copilot-instructions.md`
 
