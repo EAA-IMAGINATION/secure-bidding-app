@@ -1,0 +1,49 @@
+/* Custom styles for Secure Bidding App */
+
+body {
+  background-color: #f5f5f5;
+}
+
+#html_body {
+  padding: 20px 0;
+}
+
+.navbar {
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-brand {
+  font-weight: 600;
+  font-size: 1.3rem;
+}
+
+.card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: none;
+}
+
+.btn-primary {
+  background-color: #0c5460;
+  border-color: #0c5460;
+}
+
+.btn-primary:hover {
+  background-color: #084d63;
+  border-color: #084d63;
+}
+
+.alert {
+  margin-bottom: 20px;
+  border-radius: 0.375rem;
+}
+
+h1 {
+  color: #333;
+  margin-bottom: 1.5rem;
+}
+
+.lead {
+  color: #666;
+  font-size: 1.1rem;
+}

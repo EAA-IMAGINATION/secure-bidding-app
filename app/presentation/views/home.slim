@@ -1,0 +1,14 @@
+div class="row mt-5"
+  div class="col-md-8 offset-md-2"
+    - if current_account
+      h1 Welcome back, #{current_account['username']}!
+      p class="lead" You are logged into the Secure Bidding App.
+      div class="mt-4"
+        a href="/account/#{current_account['username']}" class="btn btn-primary" View Your Account
+    - else
+      h1 Welcome to Secure Bidding
+      p class="lead" A secure platform for transparent bidding on projects.
+      div class="mt-4"
+        a href="/auth/login" class="btn btn-primary btn-lg" Get Started
+      p class="text-muted mt-3" Already have an account?
+        a href="/auth/login"  Log in

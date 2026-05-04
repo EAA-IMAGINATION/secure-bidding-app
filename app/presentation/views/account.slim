@@ -1,0 +1,34 @@
+- system_roles = (@current_account&.dig('include', 'system_roles') || []).sort
+
+div class="row mt-4"
+  div class="col-md-8 offset-md-2"
+    h1 Account Details
+
+    div class="card mt-4"
+      div class="card-body"
+        div class="row mb-3"
+          div class="col-sm-3"
+            strong Username:
+          div class="col-sm-9"
+            = @current_account['username']
+
+        div class="row mb-3"
+          div class="col-sm-3"
+            strong Email:
+          div class="col-sm-9"
+            = @current_account['email']
+
+        div class="row mb-3"
+          div class="col-sm-3"
+            strong System Roles:
+          div class="col-sm-9"
+            - if system_roles.empty?
+              span class="text-muted" No system roles assigned
+            - else
+              - system_roles.each do |role|
+                span class="badge bg-secondary me-1"
+                  = role
+
+    div class="mt-4"
+      a href="/" class="btn btn-secondary" Back to Home
+      a href="/auth/logout" class="btn btn-danger" Logout

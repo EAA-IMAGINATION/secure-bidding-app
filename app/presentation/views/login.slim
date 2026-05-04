@@ -1,0 +1,18 @@
+div class="row mt-5"
+  div class="col-sm-3"
+  div class="col-sm-6"
+    h4 class="text-center mb-4" Login with credentials
+    form method='post' action='/auth/login' id='form-login' accept-charset="UTF-8"
+      div class="form-group mb-3"
+        label for='input-username' Username or Email
+        input type='text' name='username' id='input-username' class="form-control" placeholder="Enter your username or email" required="required" autofocus="autofocus"
+      div class="form-group mb-3"
+        label for='input-password' Password
+        input type='password' name='password' id='input-password' class="form-control" placeholder="Enter your password" required="required"
+
+      button type='submit' id='button-login' value='login' class="btn btn-primary w-100" Login
+
+    p class="text-center mt-3 text-muted"
+      | Don't have an account?
+      a href="#"  Register (coming soon)
+  div class="col-sm-3"
