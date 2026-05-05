@@ -9,7 +9,7 @@ This is a server-rendered web frontend built with Roda and Slim.
 
 - Ruby 3.3.0 (see `.ruby-version`)
 - Bundler
-- The Secure Bidding API running on `http://localhost:9292/api/v1`
+- The Secure Bidding API running on `http://localhost:3000/api/v1`
 
 ### Installation
 
@@ -112,7 +112,7 @@ README.md                  # This file
 
 ### Environment Variables (config/secrets.yml)
 
-- `API_URL` - Backend API root URL (default: `http://localhost:9292/api/v1`)
+- `API_URL` - Backend API root URL (default: `http://localhost:3000/api/v1`)
 - `APP_URL` - Frontend app URL (default: `http://localhost:9292`)
 - `SESSION_SECRET` - Signed/encrypted session secret (generate with `rake generate:session_secret`)
 
