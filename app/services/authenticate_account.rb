@@ -13,7 +13,7 @@ module SecureBiddingApp
 
     def call(username:, password:)
       validate_params(username, password)
-      response = @client.post('/api/v1/auth/authenticate', { username: username, password: password })
+      response = @client.post('/auth/authenticate', { username: username, password: password })
       response
     rescue ApiClient::ApiError => e
       raise UnauthorizedError, "Authentication failed: #{e.message}"
