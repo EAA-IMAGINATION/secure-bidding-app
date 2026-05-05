@@ -25,8 +25,10 @@ module SecureBiddingApp
       username = routing.params['username'].to_s.strip
       password = routing.params['password'].to_s
       authenticate_and_redirect(routing, username, password)
+    rescue AuthenticateAccount::UnauthorizedError => e
+      handle_login_error(e, 'Invalid username or password')
     rescue StandardError => e
-      handle_login_error(e)
+      handle_login_error(e, 'An error occurred during login')
     end
 
     def authenticate_and_redirect(routing, username, password)
@@ -38,9 +40,9 @@ module SecureBiddingApp
       routing.redirect '/'
     end
 
-    def handle_login_error(error)
+    def handle_login_error(error, message = nil)
       App.logger.warn "LOGIN FAILED: #{error.inspect}"
-      flash.now[:error] = 'Username and password did not match our records'
+      flash.now[:error] = message || 'Username and password did not match our records'
       response.status = 400
       view :login
     end

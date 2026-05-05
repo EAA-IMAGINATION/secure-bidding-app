@@ -41,7 +41,7 @@ module SecureBiddingApp
     end
 
     def system_roles_of(current_account)
-      current_account&.dig('include', 'system_roles') || []
+      current_account&.dig('system_roles') || []
     end
 
     def admin?(current_account)

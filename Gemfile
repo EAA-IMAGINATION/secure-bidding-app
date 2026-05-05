@@ -4,9 +4,9 @@ source 'https://rubygems.org'
 ruby File.read('.ruby-version').strip
 
 # Web framework & templating
+gem 'rack-session', '~>2.0'
 gem 'roda', '~>3.0'
 gem 'slim'
-gem 'rack-session', '~>2.0'
 
 # Configuration & secrets
 gem 'figaro', '~>1.2'
@@ -15,10 +15,11 @@ gem 'figaro', '~>1.2'
 gem 'http', '~>5.1'
 
 # Security & encoding
-gem 'rbnacl', '~>7.1'
 gem 'base64'
+gem 'rbnacl', '~>7.1'
 
 # Server
+gem 'rackup'
 gem 'puma', '~>7.0'
 
 # Development utilities
