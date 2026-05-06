@@ -47,6 +47,12 @@ Visit `http://localhost:9292/` in your browser.
 ### Running the Development Server
 
 ```bash
+bundle exec rake start
+```
+
+Or:
+
+```bash
 bundle exec rake run:dev
 ```
 
