@@ -19,8 +19,8 @@ gem 'base64'
 gem 'rbnacl', '~>7.1'
 
 # Server
-gem 'rackup'
 gem 'puma', '~>7.0'
+gem 'rackup'
 
 # Development utilities
 gem 'pry'

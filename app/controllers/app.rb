@@ -36,14 +36,14 @@ module SecureBiddingApp
       routing.on String do |username|
         routing.get do
           require_login!(routing)
-          
+
           # Only allow users to view their own account
-          if @current_account['username'] != username
+          if @current_account['username'] == username
+            view :account, locals: { current_account: @current_account }
+          else
             response.status = 403
             flash.now[:error] = 'You do not have permission to view this account'
             view :login
-          else
-            view :account, locals: { current_account: @current_account }
           end
         end
       end
