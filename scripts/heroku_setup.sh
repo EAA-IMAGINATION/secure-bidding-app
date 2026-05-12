@@ -27,8 +27,24 @@ echo "Ensure you're logged into Heroku (heroku login). If not, please run 'herok
 # Create API app
 heroku create "$API_APP" --remote "$API_APP" || true
 
-# Provision Postgres for API
-heroku addons:create heroku-postgresql:hobby-dev --app "$API_APP"
+# Provision Postgres for API with fallbacks
+attempt_addon_create() {
+  local app="$1"; shift
+  for plan in "$@"; do
+    echo "Attempting to provision addon plan: $plan"
+    if heroku addons:create "$plan" --app "$app"; then
+      echo "Provisioned $plan on $app"
+      return 0
+    else
+      echo "Failed to provision $plan on $app; trying next option..."
+    fi
+  done
+  echo "All provisioning attempts failed for app $app"
+  return 1
+}
+
+# Try preferred then fallback plans
+attempt_addon_create "$API_APP" "heroku-postgresql:hobby-dev" "heroku-postgresql:mini" "heroku-postgresql" || true
 
 # Set production env for API
 heroku config:set RACK_ENV=production --app "$API_APP"
@@ -46,8 +62,8 @@ popd
 # Create App
 heroku create "$APP_APP" --remote "$APP_APP" || true
 
-# Provision Redis for App
-heroku addons:create heroku-redis:hobby-dev --app "$APP_APP"
+# Provision Redis for App with fallback
+attempt_addon_create "$APP_APP" "heroku-redis:hobby-dev" "heroku-redis" || true
 
 # Set config for App
 API_URL="https://$API_APP.herokuapp.com/api/v1"
