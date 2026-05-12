@@ -13,6 +13,14 @@ namespace :generate do
     puts "SESSION_SECRET=#{encoded}"
     puts "\nAdd this to config/secrets.yml"
   end
+
+  task :msg_key do
+    require 'securerandom'
+    key = SecureRandom.random_bytes(32)
+    encoded = Base64.strict_encode64(key)
+    puts "MSG_KEY=#{encoded}"
+    puts "\nAdd this to config/secrets.yml or set as Heroku config var"
+  end
 end
 
 namespace :run do

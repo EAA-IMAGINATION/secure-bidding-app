@@ -4,8 +4,29 @@ require 'roda'
 require 'figaro'
 require 'logger'
 require 'rack/session'
+require 'rack/request'
 
 module SecureBiddingApp
+  # Simple middleware to redirect HTTP to HTTPS and set HSTS headers
+  class EnforceHttps
+    def initialize(app)
+      @app = app
+    end
+
+    def call(env)
+      req = Rack::Request.new(env)
+      # If request arrived via HTTP, redirect to HTTPS
+      if req.scheme == 'http'
+        url = req.url.sub(/^http:/, 'https:')
+        return [301, { 'Location' => url, 'Content-Type' => 'text/html' }, ['Redirecting to HTTPS']]
+      end
+
+      status, headers, body = @app.call(env)
+      headers['Strict-Transport-Security'] = 'max-age=63072000; includeSubDomains; preload'
+      [status, headers, body]
+    end
+  end
+
   # Configuration for the Secure Bidding Web App
   class App < Roda
     plugin :environments
@@ -32,6 +53,11 @@ module SecureBiddingApp
 
     # Session signed and encrypted
     ONE_MONTH = 30 * 24 * 60 * 60
+
+    configure :production do
+      use EnforceHttps
+    end
+
     use Rack::Session::Cookie,
         expire_after: ONE_MONTH,
         secret: config.SESSION_SECRET
