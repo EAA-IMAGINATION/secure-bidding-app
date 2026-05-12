@@ -13,6 +13,14 @@ namespace :generate do
     puts "SESSION_SECRET=#{encoded}"
     puts "\nAdd this to config/secrets.yml"
   end
+
+  task :msg_key do
+    require 'securerandom'
+    key = SecureRandom.random_bytes(32)
+    encoded = Base64.strict_encode64(key)
+    puts "MSG_KEY=#{encoded}"
+    puts "\nAdd this to config/secrets.yml or set as Heroku config var"
+  end
 end
 
 namespace :run do
@@ -21,10 +29,26 @@ namespace :run do
   end
 end
 
+namespace :session do
+  desc 'Clear the Redis session store'
+  task :wipe do
+    redis_url = ENV['REDIS_URL']
+    redis_url = ENV['REDISCLOUD_URL'] if redis_url.to_s.strip.empty?
+
+    abort 'Set REDIS_URL or REDISCLOUD_URL before running session:wipe' if redis_url.to_s.strip.empty?
+
+    require 'redis'
+
+    Redis.new(url: redis_url).flushdb
+    puts "Cleared Redis session store at #{redis_url}"
+  end
+end
+
 task :spec do
   system(
     'bundle exec ruby -I lib:spec ' \
     'spec/api_client_spec.rb ' \
+    'spec/create_account_spec.rb ' \
     'spec/app_spec.rb ' \
     'spec/auth_spec.rb ' \
     'spec/authenticate_account_spec.rb'
