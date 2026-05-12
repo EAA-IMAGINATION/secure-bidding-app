@@ -84,6 +84,14 @@ describe SecureBiddingApp::RoutingHelpers do
       @request = FakeRequest.new(scheme, url)
     end
 
+    def scheme
+      request.scheme
+    end
+
+    def url
+      request.url
+    end
+
     def redirect(url)
       @redirected_to = url
     end

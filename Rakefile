@@ -5,10 +5,12 @@ require 'fileutils'
 require 'securerandom'
 require 'base64'
 
+SESSION_SECRET_BYTES = 64
+
 namespace :generate do
   task :session_secret do
     require 'securerandom'
-    secret = SecureRandom.random_bytes(32)
+    secret = SecureRandom.random_bytes(SESSION_SECRET_BYTES)
     encoded = Base64.strict_encode64(secret)
     puts "SESSION_SECRET=#{encoded}"
     puts "\nAdd this to config/secrets.yml"
@@ -84,7 +86,7 @@ task :start do
 
     # Replace placeholder SESSION_SECRET entries like <use `rake generate:session_secret`>
     text.gsub!(/SESSION_SECRET:\s*<[^\n>]*>/) do
-      "SESSION_SECRET: #{Base64.strict_encode64(SecureRandom.random_bytes(32))}"
+      "SESSION_SECRET: #{Base64.strict_encode64(SecureRandom.random_bytes(SESSION_SECRET_BYTES))}"
     end
 
     File.write(target, text)

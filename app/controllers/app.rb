@@ -8,9 +8,9 @@ require 'slim/include'
 module SecureBiddingApp
   module RoutingHelpers
     def redirect_http_to_https
-      return unless request.scheme == 'http'
+      return unless scheme == 'http'
 
-      redirect request.url.sub(/^http:/, 'https:')
+      redirect url.sub(/^http:/, 'https:')
     end
   end
 
