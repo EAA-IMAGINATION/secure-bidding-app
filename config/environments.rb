@@ -56,13 +56,21 @@ module SecureBiddingApp
 
     configure :production do
       use EnforceHttps
+
+      # Prefer Redis session store in production when REDIS_URL is provided
+      if config.REDIS_URL && !config.REDIS_URL.to_s.strip.empty?
+        require 'redis'
+        require 'redis-rack'
+        use Rack::Session::Redis, redis_server: config.REDIS_URL, expire_after: ONE_MONTH, secret: config.SESSION_SECRET
+      else
+        use Rack::Session::Cookie, expire_after: ONE_MONTH, secret: config.SESSION_SECRET
+      end
     end
 
-    use Rack::Session::Cookie,
-        expire_after: ONE_MONTH,
-        secret: config.SESSION_SECRET
-
     configure :development, :test do
+      # Use pooled sessions in development and test to approximate non-cookie store
+      require 'rack/session/pool'
+      use Rack::Session::Pool, expire_after: ONE_MONTH
       logger.level = Logger::ERROR
     end
   end

@@ -45,7 +45,7 @@ module SecureBiddingApp
         email: email, username: username, password: password
       )
 
-      session[:current_account] = account
+      SecureSession.new.set(session, :current_account, account)
       flash[:notice] = "Welcome, #{account['username']}!"
       routing.redirect '/'
     rescue CreateAccount::ValidationError => e
@@ -69,7 +69,7 @@ module SecureBiddingApp
       account = AuthenticateAccount.new(App.config).call(
         username: username, password: password
       )
-      session[:current_account] = account
+      SecureSession.new.set(session, :current_account, account)
       flash[:notice] = "Welcome back #{account['username']}!"
       routing.redirect '/'
     end
@@ -82,7 +82,7 @@ module SecureBiddingApp
     end
 
     def handle_logout(routing)
-      session[:current_account] = nil
+      SecureSession.new.delete(session, :current_account)
       flash[:notice] = "You've been logged out"
       routing.redirect @login_route
     end

@@ -41,3 +41,7 @@ group :test do
   gem 'minitest'
   gem 'webmock'
 end
+
+# Redis session store (used in production when REDIS_URL is set)
+gem 'redis'
+gem 'redis-rack'
