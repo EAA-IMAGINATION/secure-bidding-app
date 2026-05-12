@@ -33,6 +33,7 @@ task :spec do
   system(
     'bundle exec ruby -I lib:spec ' \
     'spec/api_client_spec.rb ' \
+    'spec/create_account_spec.rb ' \
     'spec/app_spec.rb ' \
     'spec/auth_spec.rb ' \
     'spec/authenticate_account_spec.rb'
