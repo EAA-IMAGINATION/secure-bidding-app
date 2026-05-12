@@ -64,3 +64,44 @@ describe 'App Controller' do
     end
   end
 end
+
+describe SecureBiddingApp::RoutingHelpers do
+  class FakeRequest
+    attr_reader :scheme, :url
+
+    def initialize(scheme, url)
+      @scheme = scheme
+      @url = url
+    end
+  end
+
+  class FakeRouting
+    include SecureBiddingApp::RoutingHelpers
+
+    attr_reader :request, :redirected_to
+
+    def initialize(scheme, url)
+      @request = FakeRequest.new(scheme, url)
+    end
+
+    def redirect(url)
+      @redirected_to = url
+    end
+  end
+
+  it 'redirects http requests to https' do
+    routing = FakeRouting.new('http', 'http://example.test/path?x=1')
+
+    routing.redirect_http_to_https
+
+    _(routing.redirected_to).must_equal 'https://example.test/path?x=1'
+  end
+
+  it 'does not redirect https requests' do
+    routing = FakeRouting.new('https', 'https://example.test/path')
+
+    routing.redirect_http_to_https
+
+    _(routing.redirected_to).must_be_nil
+  end
+end

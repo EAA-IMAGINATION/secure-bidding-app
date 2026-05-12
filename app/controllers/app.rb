@@ -6,6 +6,14 @@ require 'slim'
 require 'slim/include'
 
 module SecureBiddingApp
+  module RoutingHelpers
+    def redirect_http_to_https
+      return unless request.scheme == 'http'
+
+      redirect request.url.sub(/^http:/, 'https:')
+    end
+  end
+
   # Base class for the Secure Bidding Web App
   class App < Roda
     use Rack::MethodOverride
@@ -18,6 +26,9 @@ module SecureBiddingApp
     plugin :all_verbs
 
     route do |routing|
+      routing.extend(RoutingHelpers)
+      routing.redirect_http_to_https if App.environment == :production
+
       response['Content-Type'] = 'text/html; charset=utf-8'
       @current_account = SecureSession.new.get(session, :current_account)
 

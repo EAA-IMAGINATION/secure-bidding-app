@@ -57,14 +57,19 @@ module SecureBiddingApp
     configure :production do
       use EnforceHttps
 
-      # Prefer Redis session store in production when REDIS_URL is provided
+      # Prefer Redis session store in production when a Redis URL is provided
       # Prefer explicit environment variables over config file to support Heroku
       sess_secret = ENV['SESSION_SECRET'] && !ENV['SESSION_SECRET'].strip.empty? ? ENV['SESSION_SECRET'] : config.SESSION_SECRET
+      redis_url = if config.REDIS_URL && !config.REDIS_URL.to_s.strip.empty?
+                    config.REDIS_URL
+                  elsif config.REDISCLOUD_URL && !config.REDISCLOUD_URL.to_s.strip.empty?
+                    config.REDISCLOUD_URL
+                  end
 
-      if config.REDIS_URL && !config.REDIS_URL.to_s.strip.empty?
+      if redis_url
         require 'redis'
         require 'redis-rack'
-        use Rack::Session::Redis, redis_server: config.REDIS_URL, expire_after: ONE_MONTH, secret: sess_secret
+        use Rack::Session::Redis, redis_server: redis_url, expire_after: ONE_MONTH, secret: sess_secret
       else
         use Rack::Session::Cookie, expire_after: ONE_MONTH, secret: sess_secret
       end
