@@ -62,8 +62,8 @@ popd
 # Create App
 heroku create "$APP_APP" --remote "$APP_APP" || true
 
-# Provision Redis for App with fallback
-attempt_addon_create "$APP_APP" "heroku-redis:hobby-dev" "heroku-redis" || true
+# Provision Redis for App with fallback (prefer RedisCloud 30MB)
+attempt_addon_create "$APP_APP" "rediscloud:30" "heroku-redis:hobby-dev" "heroku-redis" || true
 
 # Set config for App
 API_URL="https://$API_APP.herokuapp.com/api/v1"
