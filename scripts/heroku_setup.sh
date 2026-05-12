@@ -43,8 +43,8 @@ attempt_addon_create() {
   return 1
 }
 
-# Try preferred then fallback plans
-attempt_addon_create "$API_APP" "heroku-postgresql:hobby-dev" "heroku-postgresql:mini" "heroku-postgresql" || true
+# Try preferred then fallback plans (include Essential-0 plan)
+attempt_addon_create "$API_APP" "heroku-postgresql:hobby-dev" "heroku-postgresql:essential-0" "heroku-postgresql:mini" "heroku-postgresql" || true
 
 # Set production env for API
 heroku config:set RACK_ENV=production --app "$API_APP"
