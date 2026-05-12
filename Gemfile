@@ -45,3 +45,5 @@ end
 # Redis session store (used in production when REDIS_URL is set)
 gem 'redis'
 gem 'redis-rack'
+# Ensure logger stdlib is available as a gem on newer Rubies
+gem "logger"

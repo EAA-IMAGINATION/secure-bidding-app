@@ -154,6 +154,7 @@ DEPENDENCIES
   bundler-audit
   figaro (~> 1.2)
   http (~> 5.1)
+  logger
   minitest
   pry
   puma (~> 7.0)
