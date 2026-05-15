@@ -36,7 +36,7 @@ module SecureBiddingApp
       handle_login_error(e, 'An error occurred during login')
     end
 
-    def handle_register_post(routing)
+    def handle_register_post(routing) # rubocop:disable Metrics/AbcSize,Metrics/MethodLength
       email = routing.params['email'].to_s.strip
       username = routing.params['username'].to_s.strip
       password = routing.params['password'].to_s

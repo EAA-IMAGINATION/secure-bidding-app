@@ -19,7 +19,7 @@ module SecureBiddingApp
     end
 
     def initialize(base_url)
-      @base_url = base_url
+      @base_url = base_url.to_s.chomp('/')
     end
 
     def get(path, params: {})
@@ -44,6 +44,7 @@ module SecureBiddingApp
     private
 
     def url(path)
+      path = "/#{path}" unless path.start_with?('/')
       "#{@base_url}#{path}"
     end
 
