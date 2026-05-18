@@ -11,7 +11,6 @@ module SecureBiddingApp
 
       routing.is 'login' do
         routing.get { view :login }
-        routing.post { handle_login_post(routing) }
       end
 
       routing.is 'reset-password' do
@@ -26,6 +25,16 @@ module SecureBiddingApp
 
       routing.on 'logout' do
         routing.get { handle_logout(routing) }
+      end
+    end
+
+    route('api') do |routing|
+      routing.on 'v1' do
+        routing.on 'auth' do
+          routing.is 'authenticate' do
+            routing.post { handle_login_post(routing) }
+          end
+        end
       end
     end
 

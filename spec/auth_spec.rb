@@ -30,19 +30,19 @@ describe 'Auth Controller' do
     end
   end
 
-  describe 'POST /auth/login with empty params' do
+  describe 'POST /api/v1/auth/authenticate with empty params' do
     it 'returns 400 on missing email' do
-      post '/auth/login', password: 'password123'
+      post '/api/v1/auth/authenticate', password: 'password123'
       _(last_response.status).must_equal 400
     end
 
     it 'returns 400 on missing password' do
-      post '/auth/login', email: 'user@example.com'
+      post '/api/v1/auth/authenticate', username: 'user@example.com'
       _(last_response.status).must_equal 400
     end
 
     it 'returns 400 on empty request' do
-      post '/auth/login', {}
+      post '/api/v1/auth/authenticate', {}
       _(last_response.status).must_equal 400
     end
   end

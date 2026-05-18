@@ -62,6 +62,11 @@ describe 'App Controller' do
       get '/auth/login'
       _(last_response.body).must_include 'password'
     end
+
+    it 'POST /api/v1/auth/authenticate returns 400 on missing credentials' do
+      post '/api/v1/auth/authenticate', {}
+      _(last_response.status).must_equal 400
+    end
   end
 end
 
