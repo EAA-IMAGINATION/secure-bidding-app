@@ -54,7 +54,8 @@ task :spec do
     'spec/app_spec.rb ' \
     'spec/auth_spec.rb ' \
     'spec/authenticate_account_spec.rb ' \
-    'spec/registration_spec.rb'
+    'spec/registration_spec.rb ' \
+    'spec/reset_password_spec.rb'
   )
 end
 

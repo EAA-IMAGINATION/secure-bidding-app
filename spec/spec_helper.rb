@@ -20,6 +20,7 @@ CheckAccountAvailability = SecureBiddingApp::CheckAccountAvailability
 CurrentSession = SecureBiddingApp::CurrentSession
 InitiateRegistration = SecureBiddingApp::InitiateRegistration
 RegistrationToken = SecureBiddingApp::RegistrationToken
+ResetAccountPassword = SecureBiddingApp::ResetAccountPassword
 VerifyRegistration = SecureBiddingApp::VerifyRegistration
 
 module TestHelpers

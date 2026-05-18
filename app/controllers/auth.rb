@@ -14,6 +14,11 @@ module SecureBiddingApp
         routing.post { handle_login_post(routing) }
       end
 
+      routing.is 'reset-password' do
+        routing.get { view :reset_password }
+        routing.post { handle_reset_password_post(routing) }
+      end
+
       routing.is 'register' do
         routing.get { routing.redirect '/register' }
         routing.post { routing.redirect '/register' }
@@ -52,10 +57,34 @@ module SecureBiddingApp
       view :login
     end
 
+    def handle_reset_password_post(routing)
+      email = routing.params['email'].to_s.strip
+      password = routing.params['password'].to_s
+
+      ResetAccountPassword.new(App.config).call(email: email, password: password)
+      flash[:notice] = 'Password updated. You can log in with the new password.'
+      routing.redirect '/auth/login'
+    rescue ResetAccountPassword::ValidationError, ResetAccountPassword::NotFoundError => e
+      flash.now[:error] = e.message
+      response.status = 400
+      view :reset_password
+    rescue ApiClient::ApiError => e
+      flash.now[:error] = api_error_message(e, 'Password reset failed')
+      response.status = e.status.to_i
+      view :reset_password
+    end
+
     def handle_logout(routing)
       @current_session.delete_current_account
       flash[:notice] = "You've been logged out"
       routing.redirect @login_route
+    end
+
+    def api_error_message(error, fallback)
+      return error.body['error'].to_s if error.body.is_a?(Hash) && error.body['error']
+      return error.body['message'].to_s if error.body.is_a?(Hash) && error.body['message']
+
+      fallback
     end
   end
 end

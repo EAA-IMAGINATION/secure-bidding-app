@@ -36,6 +36,10 @@ module SecureBiddingApp
       parse(request(headers).put(url(path), json: body))
     end
 
+    def patch(path, body, headers: {})
+      parse(request(headers).patch(url(path), json: body))
+    end
+
     def delete(path, body = nil, headers: {})
       response = body ? request(headers).delete(url(path), body: body.to_json) : request(headers).delete(url(path))
       parse(response)
