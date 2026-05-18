@@ -51,3 +51,6 @@ build/
 
 # OS
 Thumbs.db
+
+# Specifications
+specifications/*
