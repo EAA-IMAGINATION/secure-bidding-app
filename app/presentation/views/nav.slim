@@ -1,26 +1,27 @@
-nav role="navigation" class="navbar navbar-expand-sm navbar-dark bg-primary"
-  div class="container-fluid"
-    a class="navbar-brand" rel="home" href="/" title="Secure Bidding App"
+nav.navbar.navbar-expand-lg.navbar-dark.bg-primary.shadow-sm role="navigation"
+  div class="container"
+    a.navbar-brand href="/" title="Secure Bidding App"
       | Secure Bidding
-    button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation"
-      span class="navbar-toggler-icon"
+    button.navbar-toggler type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation"
+      span.navbar-toggler-icon
 
-    div class="collapse navbar-collapse" id="mainNavbar"
-      ul class="navbar-nav me-auto"
+    div.collapse.navbar-collapse id="mainNavbar"
+      ul.navbar-nav.ms-auto
         - if @current_account
-          li class="nav-item"
-            a class="nav-link" href="/" Home
-          li class="nav-item dropdown"
-            a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false"
+          li.nav-item
+            a.nav-link href="/" Home
+          li.nav-item.dropdown
+            a.nav-link.dropdown-toggle href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false"
               = @current_account['username']
-
-            div class="dropdown-menu"
-              a class="dropdown-item" href="/account/#{@current_account['username']}" Account
-              a class="dropdown-item" href='/auth/logout' Logout
+            ul.dropdown-menu.dropdown-menu-end
+              li
+                a.dropdown-item href="/account/#{@current_account['username']}" Account
+              li
+                a.dropdown-item href="/auth/logout" Logout
         - else
-          li class="nav-item"
-            a class="nav-link active" href='/' Home
-          li class="nav-item"
-            a class="nav-link" href='/auth/login' Login
-          li class="nav-item"
-            a class="nav-link" href='/register' Register
+          li.nav-item
+            a.nav-link href="/" Home
+          li.nav-item
+            a.nav-link href="/auth/login" Login
+          li.nav-item
+            a.nav-link href="/register" Register

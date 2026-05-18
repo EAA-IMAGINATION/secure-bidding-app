@@ -1,27 +1,23 @@
 - system_roles = (@current_account&.dig('include', 'system_roles') || @current_account&.dig('system_roles') || []).sort
 
-div class="row mt-4"
-  div class="col-md-8 offset-md-2"
-    h1 Account Details
+div class="row justify-content-center mt-4"
+  div class="col-md-9 col-lg-8"
+    div class="card shadow-sm"
+      div class="card-body p-4 p-md-5"
+        p class="text-uppercase text-primary fw-semibold mb-2" Account
+        h1 class="h3 mb-4" Account details
 
-    div class="card mt-4"
-      div class="card-body"
-        div class="row mb-3"
-          div class="col-sm-3"
-            strong Username:
-          div class="col-sm-9"
+        dl class="row mb-0"
+          dt class="col-sm-3 text-muted" Username
+          dd class="col-sm-9 mb-3"
             = @current_account['username']
 
-        div class="row mb-3"
-          div class="col-sm-3"
-            strong Email:
-          div class="col-sm-9"
+          dt class="col-sm-3 text-muted" Email
+          dd class="col-sm-9 mb-3"
             = @current_account['email']
 
-        div class="row mb-3"
-          div class="col-sm-3"
-            strong System Roles:
-          div class="col-sm-9"
+          dt class="col-sm-3 text-muted" System roles
+          dd class="col-sm-9 mb-0"
             - if system_roles.empty?
               span class="text-muted" No system roles assigned
             - else
@@ -29,6 +25,6 @@ div class="row mt-4"
                 span class="badge bg-secondary me-1"
                   = role
 
-    div class="mt-4"
-      a href="/" class="btn btn-secondary" Back to Home
-      a href="/auth/logout" class="btn btn-danger" Logout
+        div class="d-flex flex-wrap gap-2 mt-4"
+          a href="/" class="btn btn-outline-secondary" Back to home
+          a href="/auth/logout" class="btn btn-danger" Logout

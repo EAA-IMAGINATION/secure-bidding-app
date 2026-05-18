@@ -1,14 +1,19 @@
-div class="row mt-5"
-  div class="col-sm-3"
-  div class="col-sm-6"
-    h4 class="text-center mb-4" Login with credentials
-    form method='post' action='/auth/login' id='form-login' accept-charset="UTF-8"
-      div class="form-group mb-3"
-        label for='input-username' Username
-        input type='text' name='username' id='input-username' class="form-control" placeholder="Enter your username" required="required" autofocus="autofocus"
-      div class="form-group mb-3"
-        label for='input-password' Password
-        input type='password' name='password' id='input-password' class="form-control" placeholder="Enter your password" required="required"
+h1 class="text-center mb-4" Login
 
-      button type='submit' id='button-login' value='login' class="btn btn-primary w-100" Login
-  div class="col-sm-3"
+div class="row justify-content-center"
+  div class="col-md-7 col-lg-6"
+    div class="card shadow-sm"
+      div class="card-body p-4 p-md-5"
+        p class="text-muted mb-4"
+          | Sign in to manage your profile and account details.
+
+        form method="post" action="/auth/login" id="form-login" accept-charset="UTF-8"
+          div class="mb-3"
+            label.form-label for="input-username" Username
+            input#input-username.form-control type="text" name="username" placeholder="Enter your username" required="required" autofocus="autofocus"
+
+          div class="mb-4"
+            label.form-label for="input-password" Password
+            input#input-password.form-control type="password" name="password" placeholder="Enter your password" required="required"
+
+          button.btn.btn-primary.btn-lg.w-100 type="submit" Login

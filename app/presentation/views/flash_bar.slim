@@ -1,7 +1,9 @@
-#flash-container
+div id="flash-container" class="mt-3"
   - if flash[:error]
-    div class="alert alert-danger" id="flash_bar_danger" role="alert"
+    div class="alert alert-danger alert-dismissible fade show" id="flash_bar_danger" role="alert"
       = flash[:error]
+      button.btn-close type="button" data-bs-dismiss="alert" aria-label="Close"
   - if flash[:notice]
-    div class="alert alert-success" id="flash_bar_success" role="alert"
+    div class="alert alert-success alert-dismissible fade show" id="flash_bar_success" role="alert"
       = flash[:notice]
+      button.btn-close type="button" data-bs-dismiss="alert" aria-label="Close"

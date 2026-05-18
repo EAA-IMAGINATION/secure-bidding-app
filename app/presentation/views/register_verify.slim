@@ -1,20 +1,25 @@
 - pending_registration = @pending_registration || {}
 
-div class="row mt-5"
-  div class="col-md-8 offset-md-2"
-    h2 Verify your registration
-    p class="lead"
-      | Complete your account after following the email link.
+h1 class="text-center mb-4" Verify your registration
 
-    form method="post" action="/register/verify/#{@verification_token}" id="form-register-verify"
-      div class="form-group mb-3"
-        label for="input-verify-username" Username
-        input type="text" id="input-verify-username" class="form-control" value=(pending_registration['username']) readonly="readonly"
-      div class="form-group mb-3"
-        label for="input-verify-email" Email
-        input type="email" id="input-verify-email" class="form-control" value=(pending_registration['email']) readonly="readonly"
-      div class="form-group mb-3"
-        label for="input-verify-password" Password
-        input type="password" name="password" id="input-verify-password" class="form-control" placeholder="Choose a password" required="required"
+div class="row justify-content-center"
+  div class="col-md-7 col-lg-6"
+    div class="card shadow-sm"
+      div class="card-body p-4 p-md-5"
+        p class="text-muted mb-4"
+          | Confirm your details and choose a password to finish creating your account.
 
-      button type="submit" class="btn btn-primary w-100" Verify account
+        form method="post" action="/register/verify/#{@verification_token}" id="form-register-verify"
+          div class="mb-3"
+            label.form-label for="input-verify-username" Username
+            input#input-verify-username.form-control type="text" value=(pending_registration['username']) readonly="readonly"
+
+          div class="mb-3"
+            label.form-label for="input-verify-email" Email
+            input#input-verify-email.form-control type="email" value=(pending_registration['email']) readonly="readonly"
+
+          div class="mb-4"
+            label.form-label for="input-verify-password" Password
+            input#input-verify-password.form-control type="password" name="password" placeholder="Create a password" required="required"
+
+          button.btn.btn-primary.btn-lg.w-100 type="submit" Verify account
