@@ -32,6 +32,7 @@ module SecureBiddingApp
       response['Content-Type'] = 'text/html; charset=utf-8'
       @current_session = CurrentSession.new(session)
       @current_account = @current_session.current_account
+      @api_url = App.config.API_URL.to_s.chomp('/')
 
       routing.public
       routing.assets

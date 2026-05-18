@@ -74,22 +74,8 @@ describe 'Week 12 Registration Flow' do
       _(last_response.status).must_equal 200
       _(last_response.body).must_include 'Username'
       _(last_response.body).must_include 'Email'
-    end
-  end
-
-  describe 'POST /register' do
-    it 'starts the registration flow and redirects back to the register page' do
-      stub_request(:post, "#{base_url}/auth/availability")
-        .to_return(status: 200, body: '{"available":{"username":true,"email":true}}',
-                   headers: { 'Content-Type' => 'application/json' })
-      stub_request(:post, "#{base_url}/auth/register")
-        .to_return(status: 200, body: '{"message":"Check your email to verify your account","account_id":"abc"}',
-                   headers: { 'Content-Type' => 'application/json' })
-
-      post '/register', username: 'alice', email: 'alice@example.com'
-
-      _(last_response.status).must_equal 302
-      _(last_response.location).must_include '/register'
+      _(last_response.body).must_include "#{base_url}/auth/register"
+      _(last_response.body).wont_include 'action="/register"'
     end
   end
 
