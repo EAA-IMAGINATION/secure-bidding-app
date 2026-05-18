@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'spec_helper'
+require 'json'
 
 describe 'Auth Controller' do
   describe 'GET /auth/login' do
@@ -32,17 +33,17 @@ describe 'Auth Controller' do
 
   describe 'POST /api/v1/auth/authenticate with empty params' do
     it 'returns 400 on missing email' do
-      post '/api/v1/auth/authenticate', password: 'password123'
+      post '/api/v1/auth/authenticate', {}.to_json, { 'CONTENT_TYPE' => 'application/json' }
       _(last_response.status).must_equal 400
     end
 
     it 'returns 400 on missing password' do
-      post '/api/v1/auth/authenticate', username: 'user@example.com'
+      post '/api/v1/auth/authenticate', { username: 'user@example.com' }.to_json, { 'CONTENT_TYPE' => 'application/json' }
       _(last_response.status).must_equal 400
     end
 
     it 'returns 400 on empty request' do
-      post '/api/v1/auth/authenticate', {}
+      post '/api/v1/auth/authenticate', {}.to_json, { 'CONTENT_TYPE' => 'application/json' }
       _(last_response.status).must_equal 400
     end
   end

@@ -20,3 +20,42 @@ div class="row justify-content-center"
 
         div class="text-center mt-3"
           a href="/auth/reset-password" class="link-secondary text-decoration-none" Forgot your password?
+
+javascript:
+  document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('form-login');
+    const flashContainer = document.getElementById('flash-container');
+    if (!form || !flashContainer) return;
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const payload = {
+        username: document.getElementById('input-username').value,
+        password: document.getElementById('input-password').value
+      };
+
+      const response = await fetch(form.action, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok) {
+        window.location.assign(data.redirect_to || '/');
+        return;
+      }
+
+      flashContainer.innerHTML = `
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+          ${data.error || 'Login failed'}
+          <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      `;
+    });
+  });

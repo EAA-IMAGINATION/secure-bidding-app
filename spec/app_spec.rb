@@ -64,7 +64,7 @@ describe 'App Controller' do
     end
 
     it 'POST /api/v1/auth/authenticate returns 400 on missing credentials' do
-      post '/api/v1/auth/authenticate', {}
+      post '/api/v1/auth/authenticate', {}.to_json, { 'CONTENT_TYPE' => 'application/json' }
       _(last_response.status).must_equal 400
     end
   end
