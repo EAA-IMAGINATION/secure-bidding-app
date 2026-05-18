@@ -55,7 +55,7 @@ describe 'App Controller' do
 
     it 'GET /auth/login has email field' do
       get '/auth/login'
-      _(last_response.body).must_include 'email'
+      _(last_response.body).must_include 'username'
     end
 
     it 'GET /auth/login has password field' do

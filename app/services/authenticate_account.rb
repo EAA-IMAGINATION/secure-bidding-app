@@ -6,7 +6,7 @@ module SecureBiddingApp
   class AuthenticateAccount
     class UnauthorizedError < StandardError; end
 
-    def initialize(config)
+    def initialize(config = App.config)
       @config = config
       @client = ApiClient.new(config.API_URL)
     end

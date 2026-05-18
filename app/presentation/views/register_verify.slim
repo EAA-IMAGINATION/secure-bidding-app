@@ -1,0 +1,20 @@
+- pending_registration = @pending_registration || {}
+
+div class="row mt-5"
+  div class="col-md-8 offset-md-2"
+    h2 Verify your registration
+    p class="lead"
+      | Complete your account after following the email link.
+
+    form method="post" action="/register/verify/#{@verification_token}" id="form-register-verify"
+      div class="form-group mb-3"
+        label for="input-verify-username" Username
+        input type="text" id="input-verify-username" class="form-control" value=(pending_registration['username']) readonly="readonly"
+      div class="form-group mb-3"
+        label for="input-verify-email" Email
+        input type="email" id="input-verify-email" class="form-control" value=(pending_registration['email']) readonly="readonly"
+      div class="form-group mb-3"
+        label for="input-verify-password" Password
+        input type="password" name="password" id="input-verify-password" class="form-control" placeholder="Choose a password" required="required"
+
+      button type="submit" class="btn btn-primary w-100" Verify account

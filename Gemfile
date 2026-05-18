@@ -24,6 +24,7 @@ gem 'rackup'
 
 # Development utilities
 gem 'pry'
+gem 'ostruct'
 
 group :development do
   gem 'bundler-audit'

@@ -18,30 +18,37 @@ module SecureBiddingApp
       end
     end
 
-    def initialize(base_url)
+    def initialize(base_url, default_headers: {})
       @base_url = base_url.to_s.chomp('/')
+      @default_headers = default_headers
     end
 
-    def get(path, params: {})
+    def get(path, params: {}, headers: {})
       full_path = params.empty? ? path : "#{path}?#{URI.encode_www_form(params)}"
-      parse(HTTP.get(url(full_path)))
+      parse(request(headers).get(url(full_path)))
     end
 
-    def post(path, body)
-      parse(HTTP.post(url(path), json: body))
+    def post(path, body, headers: {})
+      parse(request(headers).post(url(path), json: body))
     end
 
-    def put(path, body)
-      parse(HTTP.put(url(path), json: body))
+    def put(path, body, headers: {})
+      parse(request(headers).put(url(path), json: body))
     end
 
-    def delete(path, body = nil)
-      request = HTTP.headers('Content-Type' => 'application/json')
-      response = body ? request.delete(url(path), body: body.to_json) : request.delete(url(path))
+    def delete(path, body = nil, headers: {})
+      response = body ? request(headers).delete(url(path), body: body.to_json) : request(headers).delete(url(path))
       parse(response)
     end
 
     private
+
+    def request(headers)
+      merged_headers = @default_headers.merge(headers)
+      return HTTP if merged_headers.empty?
+
+      HTTP.headers(merged_headers)
+    end
 
     def url(path)
       path = "/#{path}" unless path.start_with?('/')

@@ -5,6 +5,9 @@ ENV['RACK_ENV'] = 'test'
 require 'minitest/autorun'
 require 'minitest/spec'
 require 'rack/test'
+require 'base64'
+
+ENV['MSG_KEY'] ||= Base64.strict_encode64('0123456789abcdef0123456789abcdef')
 
 # Load app
 require_relative '../require_app'
@@ -13,6 +16,11 @@ require_app
 # Make services available at top level for tests
 ApiClient = SecureBiddingApp::ApiClient
 AuthenticateAccount = SecureBiddingApp::AuthenticateAccount
+CheckAccountAvailability = SecureBiddingApp::CheckAccountAvailability
+CurrentSession = SecureBiddingApp::CurrentSession
+InitiateRegistration = SecureBiddingApp::InitiateRegistration
+RegistrationToken = SecureBiddingApp::RegistrationToken
+VerifyRegistration = SecureBiddingApp::VerifyRegistration
 
 module TestHelpers
   include Rack::Test::Methods

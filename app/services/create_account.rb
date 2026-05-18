@@ -10,9 +10,11 @@ module SecureBiddingApp
       @client = ApiClient.new(config.API_URL)
     end
 
-    def call(email:, username:, password:)
+    def call(email:, username:, password:, verification_token: nil)
       validate(email, username, password)
-      @client.post('/accounts', { email: email, username: username, password: password })
+      payload = { email: email, username: username, password: password }
+      payload[:verification_token] = verification_token if verification_token
+      @client.post('/accounts', payload)
     rescue ApiClient::ApiError => e
       raise e
     end

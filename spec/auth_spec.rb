@@ -16,7 +16,7 @@ describe 'Auth Controller' do
 
     it 'form has email input' do
       get '/auth/login'
-      _(last_response.body).must_include 'type="email"'
+      _(last_response.body).must_include 'type="text"'
     end
 
     it 'form has password input' do

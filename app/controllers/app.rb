@@ -30,7 +30,8 @@ module SecureBiddingApp
       routing.redirect_http_to_https if App.environment == :production
 
       response['Content-Type'] = 'text/html; charset=utf-8'
-      @current_account = SecureSession.new.get(session, :current_account)
+      @current_session = CurrentSession.new(session)
+      @current_account = @current_session.current_account
 
       routing.public
       routing.assets
@@ -39,6 +40,20 @@ module SecureBiddingApp
       # GET /
       routing.root do
         view 'home', locals: { current_account: @current_account }
+      end
+    end
+
+    route('register') do |routing|
+      routing.on 'verify' do
+        routing.on String do |token|
+          routing.get { handle_registration_verify_get(routing, token) }
+          routing.post { handle_registration_verify_post(routing, token) }
+        end
+      end
+
+      routing.is do
+        routing.get { view :register }
+        routing.post { handle_registration_post(routing) }
       end
     end
 
@@ -70,11 +85,77 @@ module SecureBiddingApp
     end
 
     def system_roles_of(current_account)
-      current_account&.dig('system_roles') || []
+      current_account&.dig('include', 'system_roles') || current_account&.dig('system_roles') || []
     end
 
     def admin?(current_account)
       system_roles_of(current_account).include?('admin')
+    end
+
+    def handle_registration_post(routing)
+      username = routing.params['username'].to_s.strip
+      email = routing.params['email'].to_s.strip
+
+      InitiateRegistration.new(App.config).call(username: username, email: email)
+      @current_session.store_pending_registration(username: username, email: email)
+      flash[:notice] = 'Check your email to verify your account'
+      routing.redirect '/register'
+    rescue InitiateRegistration::ValidationError => e
+      flash.now[:error] = e.message
+      response.status = 400
+      view :register
+    rescue InitiateRegistration::UnavailableError => e
+      flash.now[:error] = e.message
+      response.status = 422
+      view :register
+    rescue ApiClient::ApiError => e
+      flash.now[:error] = api_error_message(e, 'Registration failed')
+      response.status = e.status.to_i
+      view :register
+    end
+
+    def handle_registration_verify_get(routing, token)
+      @verification_token = token
+      @pending_registration = @current_session.pending_registration
+      view :register_verify
+    rescue StandardError => e
+      App.logger.warn "VERIFY PAGE FAILED: #{e.inspect}"
+      flash.now[:error] = 'Unable to load verification form'
+      response.status = 400
+      view :register_verify
+    end
+
+    def handle_registration_verify_post(routing, token)
+      password = routing.params['password'].to_s
+      result = VerifyRegistration.new(App.config).call(
+        registration_token: token,
+        password: password
+      )
+
+      verified_account = result.fetch('account', {}).merge('token' => result['token'])
+      @current_session.store_current_account(verified_account)
+      @current_session.delete_pending_registration
+      flash[:notice] = 'Your account has been verified'
+      routing.redirect '/'
+    rescue VerifyRegistration::ValidationError => e
+      flash.now[:error] = e.message
+      response.status = 400
+      @verification_token = token
+      @pending_registration = @current_session.pending_registration
+      view :register_verify
+    rescue ApiClient::ApiError => e
+      flash.now[:error] = api_error_message(e, 'Verification failed')
+      response.status = e.status.to_i
+      @verification_token = token
+      @pending_registration = @current_session.pending_registration
+      view :register_verify
+    end
+
+    def api_error_message(error, fallback)
+      return error.body['error'].to_s if error.body.is_a?(Hash) && error.body['error']
+      return error.body['message'].to_s if error.body.is_a?(Hash) && error.body['message']
+
+      fallback
     end
   end
 end
