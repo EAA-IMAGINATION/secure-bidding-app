@@ -44,12 +44,12 @@ describe 'Week 12 Registration Flow' do
         .to_return(status: 200, body: '{"available":{"username":true,"email":true}}',
                    headers: { 'Content-Type' => 'application/json' })
       stub_request(:post, "#{base_url}/auth/register")
-        .to_return(status: 200, body: '{"message":"Check your email to verify your account","account_id":"abc"}',
+        .to_return(status: 200, body: '{"message":"Check your email to verify your account"}',
                    headers: { 'Content-Type' => 'application/json' })
 
       result = InitiateRegistration.new(config).call(username: 'alice', email: 'alice@example.com')
 
-      _(result['account_id']).must_equal 'abc'
+      _(result['message']).must_include 'Check your email'
     end
   end
 
@@ -81,11 +81,15 @@ describe 'Week 12 Registration Flow' do
 
   describe 'GET /register/verify/:token' do
     it 'renders the verification form' do
-      get '/register/verify/token-value'
+      token = RegistrationToken.new.generate(username: 'alice', email: 'alice@example.com')
+      get "/register/verify/#{token}"
 
       _(last_response.status).must_equal 200
       _(last_response.body).must_include 'Verify your registration'
       _(last_response.body).must_include 'Password'
+      _(last_response.body).must_include 'alice'
+      _(last_response.body).must_include 'alice@example.com'
+      _(last_response.body).must_include 'Confirm password'
     end
   end
 end

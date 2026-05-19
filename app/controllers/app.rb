@@ -98,7 +98,6 @@ module SecureBiddingApp
       email = routing.params['email'].to_s.strip
 
       InitiateRegistration.new(App.config).call(username: username, email: email)
-      @current_session.store_pending_registration(username: username, email: email)
       flash[:notice] = 'Check your email to verify your account'
       routing.redirect '/register'
     rescue InitiateRegistration::ValidationError => e
@@ -116,9 +115,14 @@ module SecureBiddingApp
     end
 
     def handle_registration_verify_get(routing, token)
+      registration = RegistrationToken.new.decode(token)
       @verification_token = token
-      @pending_registration = @current_session.pending_registration
+      @registration_email = registration['email']
+      @registration_username = registration['username']
       view :register_verify
+    rescue RegistrationToken::InvalidTokenError
+      flash[:error] = 'Verification link is invalid'
+      routing.redirect '/register'
     rescue StandardError => e
       App.logger.warn "VERIFY PAGE FAILED: #{e.inspect}"
       flash.now[:error] = 'Unable to load verification form'
@@ -128,6 +132,18 @@ module SecureBiddingApp
 
     def handle_registration_verify_post(routing, token)
       password = routing.params['password'].to_s
+      password_confirm = routing.params['password_confirm'].to_s
+
+      if password.empty? || password != password_confirm
+        flash.now[:error] = 'Passwords did not match'
+        response.status = 400
+        @verification_token = token
+        registration = RegistrationToken.new.decode(token)
+        @registration_email = registration['email']
+        @registration_username = registration['username']
+        return view :register_verify
+      end
+
       result = VerifyRegistration.new(App.config).call(
         registration_token: token,
         password: password
@@ -148,7 +164,9 @@ module SecureBiddingApp
       flash.now[:error] = api_error_message(e, 'Verification failed')
       response.status = e.status.to_i
       @verification_token = token
-      @pending_registration = @current_session.pending_registration
+      registration = RegistrationToken.new.decode(token)
+      @registration_email = registration['email']
+      @registration_username = registration['username']
       view :register_verify
     end
 
