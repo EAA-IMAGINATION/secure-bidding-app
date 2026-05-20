@@ -40,7 +40,8 @@ module SecureBiddingApp
 
       # GET /
       routing.root do
-        view 'home', locals: { current_account: @current_account }
+        projects = fetch_published_projects
+        view 'home', locals: { current_account: @current_account, projects: projects }
       end
     end
 
@@ -76,6 +77,47 @@ module SecureBiddingApp
       end
     end
 
+    # Routes for authentication
+    route('auth') do |routing|
+      routing.on 'login' do
+        routing.get do
+          view :login
+        end
+
+        routing.post do
+          handle_login(routing)
+        end
+      end
+    end
+
+    # Routes for projects
+    route('projects') do |routing|
+      routing.on 'new' do
+        routing.get do
+          require_login!(routing)
+          view :project_new
+        end
+      end
+
+      routing.on String do |project_id|
+        routing.on 'bids' do
+          routing.post do
+            handle_bid_submission(routing, project_id)
+          end
+        end
+
+        routing.get do
+          handle_project_detail(routing, project_id)
+        end
+      end
+
+      routing.is do
+        routing.post do
+          handle_create_project(routing)
+        end
+      end
+    end
+
     private
 
     def require_login!(routing)
@@ -91,6 +133,120 @@ module SecureBiddingApp
 
     def admin?(current_account)
       system_roles_of(current_account).include?('admin')
+    end
+
+    def number_to_currency(amount)
+      format('$%.2f', amount)
+    end
+
+    def fetch_published_projects
+      FetchProjects.new(App.config).call
+    rescue FetchProjects::ServiceError => e
+      App.logger.warn "Failed to fetch projects: #{e.message}"
+      []
+    end
+
+    def handle_login(routing)
+      username = routing.params['username'].to_s.strip
+      password = routing.params['password'].to_s
+
+      result = AuthenticateAccount.new(App.config).call(username: username, password: password)
+
+      # Note: API returns account data but no token
+      # This is a known gap - users must register/verify to get a token for bidding
+      flash.now[:warning] = 'Login successful but tokens are not yet enabled. Please register to bid on projects.'
+      response.status = 200
+      view :login, locals: { login_result: result }
+    rescue AuthenticateAccount::UnauthorizedError => e
+      flash.now[:error] = e.message
+      response.status = 401
+      view :login
+    rescue ApiClient::ApiError => e
+      flash.now[:error] = api_error_message(e, 'Login failed')
+      response.status = e.status.to_i
+      view :login
+    end
+
+    def handle_project_detail(routing, project_id)
+      project = FetchProjectDetail.new(App.config).call(project_id)
+      is_owner = false # API doesn't return owner info, will be enforced on bid submission
+      view :project_detail, locals: { project: project, current_account: @current_account, is_owner: is_owner }
+    rescue FetchProjectDetail::NotFoundError
+      response.status = 404
+      flash.now[:error] = 'Project not found'
+      view :project_detail, locals: { project: nil, current_account: @current_account, is_owner: false }
+    rescue FetchProjectDetail::ServiceError => e
+      response.status = 500
+      flash.now[:error] = e.message
+      view :project_detail, locals: { project: nil, current_account: @current_account, is_owner: false }
+    end
+
+    def handle_create_project(routing)
+      require_login!(routing)
+
+      title = routing.params['title'].to_s.strip
+      budget_cents = routing.params['budget_cents'].to_s.strip
+      state = routing.params['state'].to_s.strip
+
+      result = CreateProject.new(App.config).call(
+        title: title,
+        budget_cents: budget_cents,
+        state: state
+      )
+
+      flash[:notice] = "Project created successfully (ID: #{result['id']})"
+      routing.redirect '/'
+    rescue CreateProject::ValidationError => e
+      flash.now[:error] = e.message
+      response.status = 400
+      view :project_new
+    rescue ApiClient::ApiError => e
+      flash.now[:error] = api_error_message(e, 'Failed to create project')
+      response.status = e.status.to_i
+      view :project_new
+    end
+
+    def handle_bid_submission(routing, project_id)
+      require_login!(routing)
+
+      unless @current_account['token']
+        flash.now[:error] = 'You must be verified to submit bids. Please complete the registration verification.'
+        response.status = 403
+        return view :project_detail, locals: {
+          project: FetchProjectDetail.new(App.config).call(project_id),
+          current_account: @current_account,
+          is_owner: false
+        }
+      end
+
+      contractor_alias = routing.params['contractor_alias'].to_s.strip
+      plaintext_bid = routing.params['plaintext_bid'].to_s.strip
+
+      result = SubmitBid.new(App.config).call(
+        project_id: project_id,
+        bidder_account_id: @current_account['id'],
+        contractor_alias: contractor_alias,
+        plaintext_bid: plaintext_bid,
+        auth_token: @current_account['token']
+      )
+
+      flash[:notice] = "Bid submitted successfully (ID: #{result['id']})"
+      routing.redirect "/projects/#{project_id}"
+    rescue SubmitBid::ValidationError => e
+      flash.now[:error] = e.message
+      response.status = 400
+      project = FetchProjectDetail.new(App.config).call(project_id)
+      view :project_detail, locals: { project: project, current_account: @current_account, is_owner: false }
+    rescue SubmitBid::AuthorizationError => e
+      flash.now[:error] = e.message
+      response.status = 403
+      project = FetchProjectDetail.new(App.config).call(project_id)
+      view :project_detail, locals: { project: project, current_account: @current_account, is_owner: false }
+    rescue ApiClient::ApiError => e
+      flash.now[:error] = api_error_message(e, 'Failed to submit bid')
+      response.status = e.status.to_i
+      project = FetchProjectDetail.new(App.config).call(project_id)
+      view :project_detail, locals: { project: project, current_account: @current_account, is_owner: false }
     end
 
     def handle_registration_post(routing)

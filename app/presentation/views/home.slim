@@ -4,12 +4,29 @@ div class="row justify-content-center mt-4"
       - if current_account
         p class="text-uppercase text-primary fw-semibold mb-2" Signed in
         h1 class="display-6 mb-3" Welcome back, #{current_account['username']}!
-        p class="lead mb-4" You are logged into the Secure Bidding App.
-        a href="/account/#{current_account['username']}" class="btn btn-primary btn-lg" View your account
+        div class="mb-4"
+          a href="/projects/new" class="btn btn-primary" Create New Project
+          a href="/account/#{current_account['username']}" class="btn btn-outline-primary" View your account
       - else
         p class="text-uppercase text-primary fw-semibold mb-2" Secure bidding
         h1 class="display-6 mb-3" Welcome to Secure Bidding
         p class="lead mb-4" A secure platform for transparent bidding on projects.
-        div class="d-flex flex-wrap gap-2"
+        div class="d-flex flex-wrap gap-2 mb-4"
           a href="/register" class="btn btn-primary btn-lg" Register
           a href="/auth/login" class="btn btn-outline-primary btn-lg" Login
+
+    h2 class="mb-3" Available Projects
+    div id="projects-list"
+      - if projects && projects.size > 0
+        - projects.each do |project|
+          div class="card mb-3"
+            div class="card-body"
+              h5 class="card-title"
+                a href="/projects/#{project['id']}" = project['title']
+              p class="card-text"
+                strong Budget:
+                | 
+                = number_to_currency(project['budget_cents'] / 100.0)
+              a href="/projects/#{project['id']}" class="btn btn-sm btn-outline-primary" View Details
+      - else
+        div class="alert alert-warning" No projects available at this time.

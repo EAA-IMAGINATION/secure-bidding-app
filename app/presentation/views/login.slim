@@ -5,9 +5,10 @@ div class="row justify-content-center"
     div class="card shadow-sm"
       div class="card-body p-4 p-md-5"
         p class="text-muted mb-4"
-          | Sign in to manage your profile and account details.
+          | Sign in to your account. Note: Token-based authentication for bidding is only available through registration verification. 
+          a href="/register" Register here
 
-        form method="post" action="#{@api_url}/auth/authenticate" id="form-login" accept-charset="UTF-8"
+        form method="post" action="/auth/login" id="form-login" accept-charset="UTF-8"
           div class="mb-3"
             label.form-label for="input-username" Username
             input#input-username.form-control type="text" name="username" placeholder="Enter your username" required="required" autofocus="autofocus"
@@ -19,43 +20,6 @@ div class="row justify-content-center"
           button.btn.btn-primary.btn-lg.w-100 type="submit" Login
 
         div class="text-center mt-3"
-          a href="/auth/reset-password" class="link-secondary text-decoration-none" Forgot your password?
-
-javascript:
-  document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('form-login');
-    const flashContainer = document.getElementById('flash-container');
-    if (!form || !flashContainer) return;
-
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-
-      const payload = {
-        username: document.getElementById('input-username').value,
-        password: document.getElementById('input-password').value
-      };
-
-      const response = await fetch(form.action, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json().catch(() => ({}));
-
-      if (response.ok) {
-        window.location.assign(data.redirect_to || '/');
-        return;
-      }
-
-      flashContainer.innerHTML = `
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-          ${data.error || 'Login failed'}
-          <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-      `;
-    });
-  });
+          p.text-muted
+            | Don't have an account?
+            a href="/register" class="link-primary text-decoration-none" Register here

@@ -4,28 +4,55 @@ require_relative 'spec_helper'
 
 describe 'App Controller' do
   describe 'GET /' do
+    before do
+      # Mock FetchProjects to avoid API calls
+      FetchProjects = SecureBiddingApp::FetchProjects
+      @original_fetch_projects = FetchProjects
+    end
+
+    after do
+      # Restore original
+    end
+
     it 'returns 200 OK' do
+      stub_request(:get, "#{SecureBiddingApp::App.config.API_URL}/projects")
+        .to_return(status: 200, body: { projects: [] }.to_json)
+
       get '/'
       _(last_response.status).must_equal 200
     end
 
     it 'renders home page with welcome message' do
+      stub_request(:get, "#{SecureBiddingApp::App.config.API_URL}/projects")
+        .to_return(status: 200, body: { projects: [] }.to_json)
+
       get '/'
       _(last_response.body).must_include 'Welcome'
     end
 
     it 'includes navigation in response' do
+      stub_request(:get, "#{SecureBiddingApp::App.config.API_URL}/projects")
+        .to_return(status: 200, body: { projects: [] }.to_json)
+
       get '/'
       _(last_response.body).must_include 'nav'
     end
 
     it 'includes flash message container' do
+      stub_request(:get, "#{SecureBiddingApp::App.config.API_URL}/projects")
+        .to_return(status: 200, body: { projects: [] }.to_json)
+
       get '/'
       _(last_response.body).must_include 'flash'
     end
   end
 
   describe 'Unauthenticated user' do
+    before do
+      stub_request(:get, "#{SecureBiddingApp::App.config.API_URL}/projects")
+        .to_return(status: 200, body: { projects: [] }.to_json)
+    end
+
     it 'shows login link' do
       get '/'
       _(last_response.body).must_include '/auth/login'
@@ -68,6 +95,24 @@ describe 'App Controller' do
       _(last_response.status).must_equal 400
     end
   end
+
+  describe 'Project routes' do
+    before do
+      stub_request(:get, "#{SecureBiddingApp::App.config.API_URL}/projects")
+        .to_return(status: 200, body: { projects: [] }.to_json)
+    end
+
+    it 'GET /projects/new requires login' do
+      get '/projects/new'
+      _(last_response.status).must_equal 302
+      _(last_response.location).must_include '/auth/login'
+    end
+
+    it 'GET /auth/login is accessible' do
+      get '/auth/login'
+      _(last_response.status).must_equal 200
+    end
+  end
 end
 
 describe SecureBiddingApp::RoutingHelpers do
@@ -78,43 +123,21 @@ describe SecureBiddingApp::RoutingHelpers do
       @scheme = scheme
       @url = url
     end
-  end
 
-  class FakeRouting
-    include SecureBiddingApp::RoutingHelpers
-
-    attr_reader :request, :redirected_to
-
-    def initialize(scheme, url)
-      @request = FakeRequest.new(scheme, url)
-    end
-
-    def scheme
-      request.scheme
-    end
-
-    def url
-      request.url
-    end
-
-    def redirect(url)
-      @redirected_to = url
+    def redirect(new_url)
+      new_url
     end
   end
 
-  it 'redirects http requests to https' do
-    routing = FakeRouting.new('http', 'http://example.test/path?x=1')
+  extend SecureBiddingApp::RoutingHelpers
 
-    routing.redirect_http_to_https
-
-    _(routing.redirected_to).must_equal 'https://example.test/path?x=1'
+  it 'does not redirect https' do
+    req = FakeRequest.new('https', 'https://example.com/path')
+    _(req.extend(SecureBiddingApp::RoutingHelpers).redirect_http_to_https).must_be_nil
   end
 
-  it 'does not redirect https requests' do
-    routing = FakeRouting.new('https', 'https://example.test/path')
-
-    routing.redirect_http_to_https
-
-    _(routing.redirected_to).must_be_nil
+  it 'redirects http to https' do
+    req = FakeRequest.new('http', 'http://example.com/path')
+    _(req.extend(SecureBiddingApp::RoutingHelpers).redirect_http_to_https).must_equal 'https://example.com/path'
   end
 end

@@ -5,6 +5,7 @@ ENV['RACK_ENV'] = 'test'
 require 'minitest/autorun'
 require 'minitest/spec'
 require 'rack/test'
+require 'webmock/minitest'
 require 'base64'
 
 ENV['MSG_KEY'] ||= Base64.strict_encode64('0123456789abcdef0123456789abcdef')
@@ -17,10 +18,14 @@ require_app
 ApiClient = SecureBiddingApp::ApiClient
 AuthenticateAccount = SecureBiddingApp::AuthenticateAccount
 CheckAccountAvailability = SecureBiddingApp::CheckAccountAvailability
+CreateProject = SecureBiddingApp::CreateProject
 CurrentSession = SecureBiddingApp::CurrentSession
+FetchProjectDetail = SecureBiddingApp::FetchProjectDetail
+FetchProjects = SecureBiddingApp::FetchProjects
 InitiateRegistration = SecureBiddingApp::InitiateRegistration
 RegistrationToken = SecureBiddingApp::RegistrationToken
 ResetAccountPassword = SecureBiddingApp::ResetAccountPassword
+SubmitBid = SecureBiddingApp::SubmitBid
 VerifyRegistration = SecureBiddingApp::VerifyRegistration
 
 module TestHelpers

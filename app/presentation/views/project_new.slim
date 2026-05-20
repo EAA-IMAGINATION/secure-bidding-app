@@ -1,0 +1,25 @@
+div class="row justify-content-center mt-4"
+  div class="col-lg-6"
+    a href="/" class="btn btn-outline-secondary mb-3" Back to Projects
+
+    div class="card"
+      div class="card-body"
+        h2 class="card-title mb-4" Create New Project
+
+        form method="post" action="/projects"
+          div class="mb-3"
+            label for="title" class="form-label" Project Title
+            input type="text" class="form-control" id="title" name="title" required=true placeholder="Enter project title"
+
+          div class="mb-3"
+            label for="budget_cents" class="form-label" Budget (in cents)
+            input type="number" class="form-control" id="budget_cents" name="budget_cents" required=true min="0" placeholder="e.g., 120000 for $1200.00"
+            small class="form-text text-muted" Note: Enter amount in cents (1 dollar = 100 cents)
+
+          div class="mb-3"
+            label for="state" class="form-label" Project State
+            select class="form-select" id="state" name="state"
+              option value="saved" Save as Draft
+              option value="published" Publish Immediately
+
+          button type="submit" class="btn btn-primary w-100" Create Project

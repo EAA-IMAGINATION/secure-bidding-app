@@ -1,0 +1,43 @@
+div class="row justify-content-center mt-4"
+  div class="col-lg-9"
+    a href="/" class="btn btn-outline-secondary mb-3" Back to Projects
+
+    div class="card mb-4"
+      div class="card-body"
+        h2 class="card-title mb-3" = project['title']
+        
+        p class="mb-2"
+          strong State:
+          span class="badge bg-#{project['state'] == 'published' ? 'success' : 'warning'}" = project['state'].capitalize
+        
+        p class="mb-4"
+          strong Budget:
+          | 
+          = number_to_currency(project['budget_cents'] / 100.0)
+
+    - if current_account && project['state'] == 'published'
+      div class="card"
+        div class="card-body"
+          h5 class="card-title" Submit a Bid
+
+          - if is_owner
+            div class="alert alert-warning" You are the project owner and cannot bid on your own project.
+          - else
+            form method="post" action="/projects/#{project['id']}/bids"
+              div class="mb-3"
+                label for="contractor_alias" class="form-label" Contractor Alias
+                input type="text" class="form-control" id="contractor_alias" name="contractor_alias" required=true
+
+              div class="mb-3"
+                label for="plaintext_bid" class="form-label" Bid Amount or Proposal
+                textarea class="form-control" id="plaintext_bid" name="plaintext_bid" rows="4" required=true placeholder="Enter your bid amount and proposal"
+
+              button type="submit" class="btn btn-primary" Submit Bid
+
+    - elsif !current_account
+      div class="card mt-4"
+        div class="card-body"
+          p class="mb-2" To submit a bid, you need to be logged in.
+          div class="d-flex gap-2"
+            a href="/register" class="btn btn-primary" Register
+            a href="/auth/login" class="btn btn-outline-primary" Login
