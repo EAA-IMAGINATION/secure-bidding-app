@@ -77,18 +77,6 @@ module SecureBiddingApp
       end
     end
 
-    # Routes for authentication
-    route('auth') do |routing|
-      routing.on 'login' do
-        routing.get do
-          view :login
-        end
-
-        routing.post do
-          handle_login(routing)
-        end
-      end
-    end
 
     # Routes for projects
     route('projects') do |routing|
@@ -146,26 +134,6 @@ module SecureBiddingApp
       []
     end
 
-    def handle_login(routing)
-      username = routing.params['username'].to_s.strip
-      password = routing.params['password'].to_s
-
-      result = AuthenticateAccount.new(App.config).call(username: username, password: password)
-
-      # Note: API returns account data but no token
-      # This is a known gap - users must register/verify to get a token for bidding
-      flash.now[:warning] = 'Login successful but tokens are not yet enabled. Please register to bid on projects.'
-      response.status = 200
-      view :login, locals: { login_result: result }
-    rescue AuthenticateAccount::UnauthorizedError => e
-      flash.now[:error] = e.message
-      response.status = 401
-      view :login
-    rescue ApiClient::ApiError => e
-      flash.now[:error] = api_error_message(e, 'Login failed')
-      response.status = e.status.to_i
-      view :login
-    end
 
     def handle_project_detail(routing, project_id)
       project = FetchProjectDetail.new(App.config).call(project_id)

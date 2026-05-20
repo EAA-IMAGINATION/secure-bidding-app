@@ -12,6 +12,7 @@ module SecureBiddingApp
 
       routing.is 'login' do
         routing.get { view :login }
+        routing.post { handle_login_post(routing) }
       end
 
       routing.is 'reset-password' do
