@@ -10,6 +10,9 @@ nav.navbar.navbar-expand-lg.navbar-dark.bg-primary.shadow-sm role="navigation"
         - if @current_account
           li.nav-item
             a.nav-link href="/" Home
+          - if system_roles_of(@current_account).include?('admin')
+            li.nav-item
+              a.nav-link href="/admin/users" Admin Users
           li.nav-item.dropdown
             a.nav-link.dropdown-toggle href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false"
               = @current_account['username']

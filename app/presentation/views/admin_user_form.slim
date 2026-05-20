@@ -1,0 +1,32 @@
+div class="row justify-content-center mt-4"
+  div class="col-lg-6"
+    - if is_edit
+      a href="/admin/users" class="btn btn-outline-secondary mb-3" Back to Users
+    - else
+      a href="/admin/users/new" class="btn btn-outline-secondary mb-3" Back
+    
+    div class="card"
+      div class="card-body"
+        - if is_edit
+          h2 class="card-title mb-4" Edit User
+        - else
+          h2 class="card-title mb-4" Create New User
+
+        - if user
+          form method="post" action="/admin/users/#{user['id']}/edit"
+            div class="mb-3"
+              label for="email" class="form-label" Email
+              input type="email" class="form-control" id="email" name="email" required="true" placeholder="user@example.com" value="#{user['email']}"
+
+            button type="submit" class="btn btn-primary w-100" Update User
+        - else
+          form method="post" action="/admin/users"
+            div class="mb-3"
+              label for="username" class="form-label" Username
+              input type="text" class="form-control" id="username" name="username" required="true" placeholder="Enter username"
+
+            div class="mb-3"
+              label for="email" class="form-label" Email
+              input type="email" class="form-control" id="email" name="email" required="true" placeholder="user@example.com"
+
+            button type="submit" class="btn btn-primary w-100" Create User

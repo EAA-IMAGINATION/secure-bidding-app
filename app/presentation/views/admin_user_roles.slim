@@ -1,0 +1,23 @@
+div class="row justify-content-center mt-4"
+  div class="col-lg-6"
+    a href="/admin/users" class="btn btn-outline-secondary mb-3" Back to Users
+
+    - if user
+      div class="card"
+        div class="card-body"
+          h2 class="card-title mb-4"
+            = "Manage Roles for #{user['username']}"
+
+          form method="post" action="/admin/users/#{user['id']}/roles"
+            div class="mb-3"
+              label for="system_role" class="form-label" System Role
+              select class="form-select" id="system_role" name="system_role" required="true"
+                option value="" disabled="true" selected="true" -- Select a role --
+                - roles.each do |role|
+                  - selected = current_roles.include?(role) ? 'selected="true"' : ''
+                  option value="#{role}" selected="#{selected}"
+                    = role.capitalize
+
+            button type="submit" class="btn btn-primary w-100" Assign Role
+    - else
+      div class="alert alert-danger" User not found

@@ -77,6 +77,67 @@ module SecureBiddingApp
       end
     end
 
+    # Admin routes for user management
+    route('admin') do |routing|
+     routing.on 'users' do
+       routing.on 'new' do
+         routing.get do
+           require_login!(routing)
+           handle_admin_new_user_form(routing)
+         end
+       end
+
+       routing.on String do |user_id|
+         routing.on 'edit' do
+           routing.get do
+             require_login!(routing)
+             handle_admin_edit_user_get(routing, user_id)
+           end
+
+           routing.post do
+             require_login!(routing)
+             handle_admin_edit_user_post(routing, user_id)
+           end
+         end
+
+         routing.on 'delete' do
+           routing.post do
+             require_login!(routing)
+             handle_admin_delete_user(routing, user_id)
+           end
+         end
+
+         routing.on 'roles' do
+           routing.get do
+             require_login!(routing)
+             handle_admin_user_roles_get(routing, user_id)
+           end
+
+           routing.post do
+             require_login!(routing)
+             handle_admin_user_roles_post(routing, user_id)
+           end
+         end
+
+         routing.get do
+           require_login!(routing)
+           handle_admin_view_user(routing, user_id)
+         end
+       end
+
+       routing.is do
+         routing.get do
+           require_login!(routing)
+           handle_admin_users_list(routing)
+         end
+
+         routing.post do
+           require_login!(routing)
+           handle_admin_create_user(routing)
+         end
+       end
+     end
+    end
 
     # Routes for projects
     route('projects') do |routing|
@@ -404,6 +465,192 @@ module SecureBiddingApp
     rescue ApiClient::ApiError => e
      flash[:error] = api_error_message(e, 'Failed to delete project')
      routing.redirect "/projects/#{project_id}"
+    end
+
+    def handle_admin_users_list(routing)
+      unless admin?(@current_account)
+        response.status = 403
+        flash.now[:error] = 'Only admins can view users'
+        return routing.redirect '/'
+      end
+
+      users = FetchUsers.new(App.config).call
+      view :admin_users_list, locals: { users: users, current_account: @current_account }
+    rescue FetchUsers::ServiceError => e
+      flash.now[:error] = e.message
+      response.status = 500
+      view :admin_users_list, locals: { users: [], current_account: @current_account }
+    end
+
+    def handle_admin_view_user(routing, user_id)
+      unless admin?(@current_account)
+        response.status = 403
+        flash.now[:error] = 'Only admins can view users'
+        return routing.redirect '/'
+      end
+
+      user = FetchUserDetail.new(App.config).call(user_id)
+      view :admin_user_detail, locals: { user: user, current_account: @current_account }
+    rescue FetchUserDetail::NotFoundError
+      response.status = 404
+      flash.now[:error] = 'User not found'
+      view :admin_user_detail, locals: { user: nil, current_account: @current_account }
+    rescue FetchUserDetail::ServiceError => e
+      response.status = 500
+      flash.now[:error] = e.message
+      view :admin_user_detail, locals: { user: nil, current_account: @current_account }
+    end
+
+    def handle_admin_new_user_form(routing)
+      unless admin?(@current_account)
+        response.status = 403
+        flash.now[:error] = 'Only admins can create users'
+        return routing.redirect '/'
+      end
+
+      view :admin_user_form, locals: { user: nil, current_account: @current_account, is_edit: false }
+    end
+
+    def handle_admin_create_user(routing)
+      unless admin?(@current_account)
+        response.status = 403
+        flash.now[:error] = 'Only admins can create users'
+        return routing.redirect '/'
+      end
+
+      username = routing.params['username'].to_s.strip
+      email = routing.params['email'].to_s.strip
+
+      result = CreateAccount.new(App.config).call(username: username, email: email)
+
+      flash[:notice] = "User #{username} created successfully (ID: #{result['id']})"
+      routing.redirect "/admin/users/#{result['id']}"
+    rescue CreateAccount::ValidationError => e
+      flash.now[:error] = e.message
+      response.status = 400
+      view :admin_user_form, locals: { user: nil, current_account: @current_account, is_edit: false }
+    rescue CreateAccount::UnavailableError => e
+      flash.now[:error] = e.message
+      response.status = 422
+      view :admin_user_form, locals: { user: nil, current_account: @current_account, is_edit: false }
+    rescue ApiClient::ApiError => e
+      flash.now[:error] = api_error_message(e, 'Failed to create user')
+      response.status = e.status.to_i
+      view :admin_user_form, locals: { user: nil, current_account: @current_account, is_edit: false }
+    end
+
+    def handle_admin_edit_user_get(routing, user_id)
+      unless admin?(@current_account)
+        response.status = 403
+        flash.now[:error] = 'Only admins can edit users'
+        return routing.redirect '/'
+      end
+
+      user = FetchUserDetail.new(App.config).call(user_id)
+      view :admin_user_form, locals: { user: user, current_account: @current_account, is_edit: true }
+    rescue FetchUserDetail::NotFoundError
+      response.status = 404
+      flash.now[:error] = 'User not found'
+      view :admin_user_form, locals: { user: nil, current_account: @current_account, is_edit: true }
+    rescue FetchUserDetail::ServiceError => e
+      response.status = 500
+      flash.now[:error] = e.message
+      view :admin_user_form, locals: { user: nil, current_account: @current_account, is_edit: true }
+    end
+
+    def handle_admin_edit_user_post(routing, user_id)
+      unless admin?(@current_account)
+        response.status = 403
+        flash.now[:error] = 'Only admins can edit users'
+        return routing.redirect '/'
+      end
+
+      email = routing.params['email'].to_s.strip
+
+      UpdateAccount.new(App.config).call(user_id: user_id, email: email)
+
+      flash[:notice] = "User #{user_id} updated successfully"
+      routing.redirect "/admin/users/#{user_id}"
+    rescue UpdateAccount::ValidationError => e
+      flash.now[:error] = e.message
+      response.status = 400
+      user = FetchUserDetail.new(App.config).call(user_id)
+      view :admin_user_form, locals: { user: user, current_account: @current_account, is_edit: true }
+    rescue ApiClient::ApiError => e
+      flash.now[:error] = api_error_message(e, 'Failed to update user')
+      response.status = e.status.to_i
+      user = FetchUserDetail.new(App.config).call(user_id)
+      view :admin_user_form, locals: { user: user, current_account: @current_account, is_edit: true }
+    end
+
+    def handle_admin_delete_user(routing, user_id)
+      unless admin?(@current_account)
+        response.status = 403
+        flash[:error] = 'Only admins can delete users'
+        return routing.redirect '/'
+      end
+
+      DeleteAccount.new(App.config).call(user_id: user_id)
+
+      flash[:notice] = "User #{user_id} deleted successfully"
+      routing.redirect '/admin/users'
+    rescue DeleteAccount::NotFoundError
+      response.status = 404
+      flash[:error] = 'User not found'
+      routing.redirect '/admin/users'
+    rescue ApiClient::ApiError => e
+      flash[:error] = api_error_message(e, 'Failed to delete user')
+      routing.redirect "/admin/users/#{user_id}"
+    end
+
+    def handle_admin_user_roles_get(routing, user_id)
+      unless admin?(@current_account)
+        response.status = 403
+        flash.now[:error] = 'Only admins can manage roles'
+        return routing.redirect '/'
+      end
+
+      user = FetchUserDetail.new(App.config).call(user_id)
+      roles = ['admin', 'user']
+      current_roles = system_roles_of(user)
+      view :admin_user_roles, locals: { user: user, roles: roles, current_roles: current_roles, current_account: @current_account }
+    rescue FetchUserDetail::NotFoundError
+      response.status = 404
+      flash.now[:error] = 'User not found'
+      view :admin_user_roles, locals: { user: nil, roles: [], current_roles: [], current_account: @current_account }
+    rescue FetchUserDetail::ServiceError => e
+      response.status = 500
+      flash.now[:error] = e.message
+      view :admin_user_roles, locals: { user: nil, roles: [], current_roles: [], current_account: @current_account }
+    end
+
+    def handle_admin_user_roles_post(routing, user_id)
+      unless admin?(@current_account)
+        response.status = 403
+        flash[:error] = 'Only admins can manage roles'
+        return routing.redirect '/'
+      end
+
+      system_role = routing.params['system_role'].to_s.strip
+
+      AssignSystemRole.new(App.config).call(account_id: user_id, system_role: system_role)
+
+      flash[:notice] = "User #{user_id} role updated to #{system_role}"
+      routing.redirect "/admin/users/#{user_id}/roles"
+    rescue AssignSystemRole::ValidationError => e
+      flash.now[:error] = e.message
+      response.status = 400
+      user = FetchUserDetail.new(App.config).call(user_id)
+      roles = ['admin', 'user']
+      current_roles = system_roles_of(user)
+      view :admin_user_roles, locals: { user: user, roles: roles, current_roles: current_roles, current_account: @current_account }
+    rescue ApiClient::ApiError => e
+      flash.now[:error] = api_error_message(e, 'Failed to assign role')
+      response.status = e.status.to_i
+      user = FetchUserDetail.new(App.config).call(user_id)
+      roles = ['admin', 'user']
+      current_roles = system_roles_of(user)
+      view :admin_user_roles, locals: { user: user, roles: roles, current_roles: current_roles, current_account: @current_account }
     end
   end
 end

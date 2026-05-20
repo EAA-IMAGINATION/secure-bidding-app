@@ -1,0 +1,38 @@
+div class="row justify-content-center mt-4"
+  div class="col-lg-9"
+    a href="/admin/users" class="btn btn-outline-secondary mb-3" Back to Users
+
+    - if user
+      div class="card mb-4"
+        div class="card-body"
+          h2 class="card-title mb-3"
+            = user['username']
+          
+          p class="mb-2"
+            strong ID:
+            span
+              | 
+              = user['id']
+          
+          p class="mb-2"
+            strong Email:
+            span
+              | 
+              = user['email']
+          
+          p class="mb-4"
+            strong Roles:
+            - if user['system_roles'] && user['system_roles'].size > 0
+              - user['system_roles'].each do |role|
+                span class="badge bg-info me-1"
+                  = role
+            - else
+              span class="badge bg-secondary" user
+
+      div class="d-flex gap-2 mb-4"
+        a href="/admin/users/#{user['id']}/edit" class="btn btn-warning" Edit User
+        a href="/admin/users/#{user['id']}/roles" class="btn btn-primary" Manage Roles
+        form method="post" action="/admin/users/#{user['id']}/delete" class="d-inline" onsubmit="return confirm('Delete user #{user['username']}?');"
+          button type="submit" class="btn btn-danger" Delete User
+    - else
+      div class="alert alert-danger" User not found
