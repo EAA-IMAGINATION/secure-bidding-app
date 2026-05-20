@@ -94,6 +94,25 @@ module SecureBiddingApp
           end
         end
 
+        routing.on 'edit' do
+          routing.get do
+            require_login!(routing)
+            handle_admin_edit_project_get(routing, project_id)
+          end
+
+          routing.post do
+            require_login!(routing)
+            handle_admin_edit_project_post(routing, project_id)
+          end
+        end
+
+        routing.on 'delete' do
+          routing.post do
+            require_login!(routing)
+            handle_admin_delete_project(routing, project_id)
+          end
+        end
+
         routing.get do
           handle_project_detail(routing, project_id)
         end
@@ -151,6 +170,12 @@ module SecureBiddingApp
 
     def handle_create_project(routing)
       require_login!(routing)
+
+      if admin?(@current_account)
+        flash.now[:error] = 'Admins cannot create projects'
+        response.status = 403
+        return view :project_new
+      end
 
       title = routing.params['title'].to_s.strip
       budget_cents = routing.params['budget_cents'].to_s.strip
@@ -299,6 +324,86 @@ module SecureBiddingApp
       return error.body['message'].to_s if error.body.is_a?(Hash) && error.body['message']
 
       fallback
+    end
+
+    def handle_admin_edit_project_get(routing, project_id)
+     unless admin?(@current_account)
+       response.status = 403
+       flash.now[:error] = 'Only admins can edit projects'
+       return view :project_detail, locals: {
+         project: FetchProjectDetail.new(App.config).call(project_id),
+         current_account: @current_account,
+         is_owner: false
+       }
+     end
+
+     project = FetchProjectDetail.new(App.config).call(project_id)
+     view :project_edit, locals: { project: project, current_account: @current_account }
+    rescue FetchProjectDetail::NotFoundError
+     response.status = 404
+     flash.now[:error] = 'Project not found'
+     view :project_edit, locals: { project: nil, current_account: @current_account }
+    rescue FetchProjectDetail::ServiceError => e
+     response.status = 500
+     flash.now[:error] = e.message
+     view :project_edit, locals: { project: nil, current_account: @current_account }
+    end
+
+    def handle_admin_edit_project_post(routing, project_id)
+     unless admin?(@current_account)
+       response.status = 403
+       flash.now[:error] = 'Only admins can edit projects'
+       project = FetchProjectDetail.new(App.config).call(project_id)
+       return view :project_detail, locals: {
+         project: project,
+         current_account: @current_account,
+         is_owner: false
+       }
+     end
+
+     title = routing.params['title'].to_s.strip
+     budget_cents = routing.params['budget_cents'].to_s.strip
+     state = routing.params['state'].to_s.strip
+
+     UpdateProject.new(App.config).call(
+       project_id: project_id,
+       title: title,
+       budget_cents: budget_cents,
+       state: state
+     )
+
+     flash[:notice] = "Project #{project_id} updated successfully"
+     routing.redirect "/projects/#{project_id}"
+    rescue UpdateProject::ValidationError => e
+     flash.now[:error] = e.message
+     response.status = 400
+     project = FetchProjectDetail.new(App.config).call(project_id)
+     view :project_edit, locals: { project: project, current_account: @current_account }
+    rescue ApiClient::ApiError => e
+     flash.now[:error] = api_error_message(e, 'Failed to update project')
+     response.status = e.status.to_i
+     project = FetchProjectDetail.new(App.config).call(project_id)
+     view :project_edit, locals: { project: project, current_account: @current_account }
+    end
+
+    def handle_admin_delete_project(routing, project_id)
+     unless admin?(@current_account)
+       response.status = 403
+       flash[:error] = 'Only admins can delete projects'
+       return routing.redirect "/projects/#{project_id}"
+     end
+
+     DeleteProject.new(App.config).call(project_id: project_id)
+
+     flash[:notice] = "Project #{project_id} deleted successfully"
+     routing.redirect '/'
+    rescue DeleteProject::NotFoundError
+     response.status = 404
+     flash[:error] = 'Project not found'
+     routing.redirect '/'
+    rescue ApiClient::ApiError => e
+     flash[:error] = api_error_message(e, 'Failed to delete project')
+     routing.redirect "/projects/#{project_id}"
     end
   end
 end
