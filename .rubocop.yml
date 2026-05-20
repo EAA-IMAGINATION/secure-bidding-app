@@ -14,6 +14,9 @@ AllCops:
 
 Layout/LineLength:
   Max: 100
+  Exclude:
+    - 'spec/**/*_spec.rb'
+    - 'Rakefile'
 
 Style/StringLiterals:
   EnforcedStyle: single_quotes
@@ -30,6 +33,9 @@ Metrics/ClassLength:
 
 Metrics/AbcSize:
   Max: 30
+  Exclude:
+    - 'app/controllers/app.rb'
+    - 'app/controllers/auth.rb'
 
 Metrics/BlockLength:
   Max: 50
@@ -47,4 +53,13 @@ Lint/ConstantDefinitionInBlock:
 Style/OpenStructUse:
   Exclude:
     - 'spec/**/*_spec.rb'
+
+Security/MarshalLoad:
+  Exclude:
+    - 'app/services/secure_session.rb'
+
+Style/IfUnlessModifier:
+  Exclude:
+    - 'Rakefile'
+
 

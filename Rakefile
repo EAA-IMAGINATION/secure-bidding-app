@@ -37,9 +37,7 @@ namespace :session do
     redis_url = ENV.fetch('REDIS_URL', nil)
     redis_url = ENV.fetch('REDISCLOUD_URL', nil) if redis_url.to_s.strip.empty?
 
-    if redis_url.to_s.strip.empty?
-      abort 'Set REDIS_URL or REDISCLOUD_URL before running session:wipe'
-    end
+    abort 'Set REDIS_URL or REDISCLOUD_URL before running session:wipe' if redis_url.to_s.strip.empty?
 
     require 'redis'
 
