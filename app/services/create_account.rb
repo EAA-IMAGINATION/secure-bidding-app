@@ -15,8 +15,6 @@ module SecureBiddingApp
       payload = { email: email, username: username, password: password }
       payload[:verification_token] = verification_token if verification_token
       @client.post('/accounts', payload)
-    rescue ApiClient::ApiError => e
-      raise e
     end
 
     private

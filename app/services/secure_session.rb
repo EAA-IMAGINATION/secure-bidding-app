@@ -16,6 +16,7 @@ module SecureBiddingApp
     def get(session, key)
       token = session[key]
       return nil unless token
+
       begin
         Marshal.load(@messenger.decrypt(token))
       rescue StandardError

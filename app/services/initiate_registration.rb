@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module SecureBiddingApp
-  # Starts the registration flow by checking availability and asking the API to send verification email.
+  # Starts the registration flow by checking availability and emailing verification token.
   class InitiateRegistration
     class ValidationError < StandardError; end
     class UnavailableError < StandardError; end

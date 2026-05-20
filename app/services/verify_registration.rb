@@ -15,14 +15,15 @@ module SecureBiddingApp
       payload = { registration_token: registration_token }
       payload[:password] = password.to_s unless password.nil?
       @client.post('/auth/verify', payload)
-    rescue ApiClient::ApiError => e
-      raise e
     end
 
     private
 
     def validate(registration_token)
-      raise ValidationError, 'Registration token is required' if registration_token.to_s.strip.empty?
+      return unless registration_token.to_s.strip.empty?
+
+      raise ValidationError,
+            'Registration token is required'
     end
   end
 end

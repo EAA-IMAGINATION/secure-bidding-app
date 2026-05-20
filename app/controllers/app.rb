@@ -79,64 +79,64 @@ module SecureBiddingApp
 
     # Admin routes for user management
     route('admin') do |routing|
-     routing.on 'users' do
-       routing.on 'new' do
-         routing.get do
-           require_login!(routing)
-           handle_admin_new_user_form(routing)
-         end
-       end
+      routing.on 'users' do
+        routing.on 'new' do
+          routing.get do
+            require_login!(routing)
+            handle_admin_new_user_form(routing)
+          end
+        end
 
-       routing.on String do |user_id|
-         routing.on 'edit' do
-           routing.get do
-             require_login!(routing)
-             handle_admin_edit_user_get(routing, user_id)
-           end
+        routing.on String do |user_id|
+          routing.on 'edit' do
+            routing.get do
+              require_login!(routing)
+              handle_admin_edit_user_get(routing, user_id)
+            end
 
-           routing.post do
-             require_login!(routing)
-             handle_admin_edit_user_post(routing, user_id)
-           end
-         end
+            routing.post do
+              require_login!(routing)
+              handle_admin_edit_user_post(routing, user_id)
+            end
+          end
 
-         routing.on 'delete' do
-           routing.post do
-             require_login!(routing)
-             handle_admin_delete_user(routing, user_id)
-           end
-         end
+          routing.on 'delete' do
+            routing.post do
+              require_login!(routing)
+              handle_admin_delete_user(routing, user_id)
+            end
+          end
 
-         routing.on 'roles' do
-           routing.get do
-             require_login!(routing)
-             handle_admin_user_roles_get(routing, user_id)
-           end
+          routing.on 'roles' do
+            routing.get do
+              require_login!(routing)
+              handle_admin_user_roles_get(routing, user_id)
+            end
 
-           routing.post do
-             require_login!(routing)
-             handle_admin_user_roles_post(routing, user_id)
-           end
-         end
+            routing.post do
+              require_login!(routing)
+              handle_admin_user_roles_post(routing, user_id)
+            end
+          end
 
-         routing.get do
-           require_login!(routing)
-           handle_admin_view_user(routing, user_id)
-         end
-       end
+          routing.get do
+            require_login!(routing)
+            handle_admin_view_user(routing, user_id)
+          end
+        end
 
-       routing.is do
-         routing.get do
-           require_login!(routing)
-           handle_admin_users_list(routing)
-         end
+        routing.is do
+          routing.get do
+            require_login!(routing)
+            handle_admin_users_list(routing)
+          end
 
-         routing.post do
-           require_login!(routing)
-           handle_admin_create_user(routing)
-         end
-       end
-     end
+          routing.post do
+            require_login!(routing)
+            handle_admin_create_user(routing)
+          end
+        end
+      end
     end
 
     # Routes for projects
@@ -214,19 +214,21 @@ module SecureBiddingApp
       []
     end
 
-
-    def handle_project_detail(routing, project_id)
+    def handle_project_detail(_routing, project_id)
       project = FetchProjectDetail.new(App.config).call(project_id)
       is_owner = false # API doesn't return owner info, will be enforced on bid submission
-      view :project_detail, locals: { project: project, current_account: @current_account, is_owner: is_owner }
+      view :project_detail,
+           locals: { project: project, current_account: @current_account, is_owner: is_owner }
     rescue FetchProjectDetail::NotFoundError
       response.status = 404
       flash.now[:error] = 'Project not found'
-      view :project_detail, locals: { project: nil, current_account: @current_account, is_owner: false }
+      view :project_detail,
+           locals: { project: nil, current_account: @current_account, is_owner: false }
     rescue FetchProjectDetail::ServiceError => e
       response.status = 500
       flash.now[:error] = e.message
-      view :project_detail, locals: { project: nil, current_account: @current_account, is_owner: false }
+      view :project_detail,
+           locals: { project: nil, current_account: @current_account, is_owner: false }
     end
 
     def handle_create_project(routing)
@@ -264,7 +266,8 @@ module SecureBiddingApp
       require_login!(routing)
 
       unless @current_account['token']
-        flash.now[:error] = 'You must be verified to submit bids. Please complete the registration verification.'
+        flash.now[:error] =
+          'You must be verified to submit bids. Please complete the registration verification.'
         response.status = 403
         return view :project_detail, locals: {
           project: FetchProjectDetail.new(App.config).call(project_id),
@@ -290,17 +293,20 @@ module SecureBiddingApp
       flash.now[:error] = e.message
       response.status = 400
       project = FetchProjectDetail.new(App.config).call(project_id)
-      view :project_detail, locals: { project: project, current_account: @current_account, is_owner: false }
+      view :project_detail,
+           locals: { project: project, current_account: @current_account, is_owner: false }
     rescue SubmitBid::AuthorizationError => e
       flash.now[:error] = e.message
       response.status = 403
       project = FetchProjectDetail.new(App.config).call(project_id)
-      view :project_detail, locals: { project: project, current_account: @current_account, is_owner: false }
+      view :project_detail,
+           locals: { project: project, current_account: @current_account, is_owner: false }
     rescue ApiClient::ApiError => e
       flash.now[:error] = api_error_message(e, 'Failed to submit bid')
       response.status = e.status.to_i
       project = FetchProjectDetail.new(App.config).call(project_id)
-      view :project_detail, locals: { project: project, current_account: @current_account, is_owner: false }
+      view :project_detail,
+           locals: { project: project, current_account: @current_account, is_owner: false }
     end
 
     def handle_registration_post(routing)
@@ -387,84 +393,84 @@ module SecureBiddingApp
       fallback
     end
 
-    def handle_admin_edit_project_get(routing, project_id)
-     unless admin?(@current_account)
-       response.status = 403
-       flash.now[:error] = 'Only admins can edit projects'
-       return view :project_detail, locals: {
-         project: FetchProjectDetail.new(App.config).call(project_id),
-         current_account: @current_account,
-         is_owner: false
-       }
-     end
+    def handle_admin_edit_project_get(_routing, project_id)
+      unless admin?(@current_account)
+        response.status = 403
+        flash.now[:error] = 'Only admins can edit projects'
+        return view :project_detail, locals: {
+          project: FetchProjectDetail.new(App.config).call(project_id),
+          current_account: @current_account,
+          is_owner: false
+        }
+      end
 
-     project = FetchProjectDetail.new(App.config).call(project_id)
-     view :project_edit, locals: { project: project, current_account: @current_account }
+      project = FetchProjectDetail.new(App.config).call(project_id)
+      view :project_edit, locals: { project: project, current_account: @current_account }
     rescue FetchProjectDetail::NotFoundError
-     response.status = 404
-     flash.now[:error] = 'Project not found'
-     view :project_edit, locals: { project: nil, current_account: @current_account }
+      response.status = 404
+      flash.now[:error] = 'Project not found'
+      view :project_edit, locals: { project: nil, current_account: @current_account }
     rescue FetchProjectDetail::ServiceError => e
-     response.status = 500
-     flash.now[:error] = e.message
-     view :project_edit, locals: { project: nil, current_account: @current_account }
+      response.status = 500
+      flash.now[:error] = e.message
+      view :project_edit, locals: { project: nil, current_account: @current_account }
     end
 
     def handle_admin_edit_project_post(routing, project_id)
-     unless admin?(@current_account)
-       response.status = 403
-       flash.now[:error] = 'Only admins can edit projects'
-       project = FetchProjectDetail.new(App.config).call(project_id)
-       return view :project_detail, locals: {
-         project: project,
-         current_account: @current_account,
-         is_owner: false
-       }
-     end
+      unless admin?(@current_account)
+        response.status = 403
+        flash.now[:error] = 'Only admins can edit projects'
+        project = FetchProjectDetail.new(App.config).call(project_id)
+        return view :project_detail, locals: {
+          project: project,
+          current_account: @current_account,
+          is_owner: false
+        }
+      end
 
-     title = routing.params['title'].to_s.strip
-     budget_cents = routing.params['budget_cents'].to_s.strip
-     state = routing.params['state'].to_s.strip
+      title = routing.params['title'].to_s.strip
+      budget_cents = routing.params['budget_cents'].to_s.strip
+      state = routing.params['state'].to_s.strip
 
-     UpdateProject.new(App.config).call(
-       project_id: project_id,
-       title: title,
-       budget_cents: budget_cents,
-       state: state
-     )
+      UpdateProject.new(App.config).call(
+        project_id: project_id,
+        title: title,
+        budget_cents: budget_cents,
+        state: state
+      )
 
-     flash[:notice] = "Project #{project_id} updated successfully"
-     routing.redirect "/projects/#{project_id}"
+      flash[:notice] = "Project #{project_id} updated successfully"
+      routing.redirect "/projects/#{project_id}"
     rescue UpdateProject::ValidationError => e
-     flash.now[:error] = e.message
-     response.status = 400
-     project = FetchProjectDetail.new(App.config).call(project_id)
-     view :project_edit, locals: { project: project, current_account: @current_account }
+      flash.now[:error] = e.message
+      response.status = 400
+      project = FetchProjectDetail.new(App.config).call(project_id)
+      view :project_edit, locals: { project: project, current_account: @current_account }
     rescue ApiClient::ApiError => e
-     flash.now[:error] = api_error_message(e, 'Failed to update project')
-     response.status = e.status.to_i
-     project = FetchProjectDetail.new(App.config).call(project_id)
-     view :project_edit, locals: { project: project, current_account: @current_account }
+      flash.now[:error] = api_error_message(e, 'Failed to update project')
+      response.status = e.status.to_i
+      project = FetchProjectDetail.new(App.config).call(project_id)
+      view :project_edit, locals: { project: project, current_account: @current_account }
     end
 
     def handle_admin_delete_project(routing, project_id)
-     unless admin?(@current_account)
-       response.status = 403
-       flash[:error] = 'Only admins can delete projects'
-       return routing.redirect "/projects/#{project_id}"
-     end
+      unless admin?(@current_account)
+        response.status = 403
+        flash[:error] = 'Only admins can delete projects'
+        return routing.redirect "/projects/#{project_id}"
+      end
 
-     DeleteProject.new(App.config).call(project_id: project_id)
+      DeleteProject.new(App.config).call(project_id: project_id)
 
-     flash[:notice] = "Project #{project_id} deleted successfully"
-     routing.redirect '/'
+      flash[:notice] = "Project #{project_id} deleted successfully"
+      routing.redirect '/'
     rescue DeleteProject::NotFoundError
-     response.status = 404
-     flash[:error] = 'Project not found'
-     routing.redirect '/'
+      response.status = 404
+      flash[:error] = 'Project not found'
+      routing.redirect '/'
     rescue ApiClient::ApiError => e
-     flash[:error] = api_error_message(e, 'Failed to delete project')
-     routing.redirect "/projects/#{project_id}"
+      flash[:error] = api_error_message(e, 'Failed to delete project')
+      routing.redirect "/projects/#{project_id}"
     end
 
     def handle_admin_users_list(routing)
@@ -508,7 +514,8 @@ module SecureBiddingApp
         return routing.redirect '/'
       end
 
-      view :admin_user_form, locals: { user: nil, current_account: @current_account, is_edit: false }
+      view :admin_user_form,
+           locals: { user: nil, current_account: @current_account, is_edit: false }
     end
 
     def handle_admin_create_user(routing)
@@ -528,15 +535,18 @@ module SecureBiddingApp
     rescue CreateAccount::ValidationError => e
       flash.now[:error] = e.message
       response.status = 400
-      view :admin_user_form, locals: { user: nil, current_account: @current_account, is_edit: false }
+      view :admin_user_form,
+           locals: { user: nil, current_account: @current_account, is_edit: false }
     rescue CreateAccount::UnavailableError => e
       flash.now[:error] = e.message
       response.status = 422
-      view :admin_user_form, locals: { user: nil, current_account: @current_account, is_edit: false }
+      view :admin_user_form,
+           locals: { user: nil, current_account: @current_account, is_edit: false }
     rescue ApiClient::ApiError => e
       flash.now[:error] = api_error_message(e, 'Failed to create user')
       response.status = e.status.to_i
-      view :admin_user_form, locals: { user: nil, current_account: @current_account, is_edit: false }
+      view :admin_user_form,
+           locals: { user: nil, current_account: @current_account, is_edit: false }
     end
 
     def handle_admin_edit_user_get(routing, user_id)
@@ -547,7 +557,8 @@ module SecureBiddingApp
       end
 
       user = FetchUserDetail.new(App.config).call(user_id)
-      view :admin_user_form, locals: { user: user, current_account: @current_account, is_edit: true }
+      view :admin_user_form,
+           locals: { user: user, current_account: @current_account, is_edit: true }
     rescue FetchUserDetail::NotFoundError
       response.status = 404
       flash.now[:error] = 'User not found'
@@ -575,12 +586,14 @@ module SecureBiddingApp
       flash.now[:error] = e.message
       response.status = 400
       user = FetchUserDetail.new(App.config).call(user_id)
-      view :admin_user_form, locals: { user: user, current_account: @current_account, is_edit: true }
+      view :admin_user_form,
+           locals: { user: user, current_account: @current_account, is_edit: true }
     rescue ApiClient::ApiError => e
       flash.now[:error] = api_error_message(e, 'Failed to update user')
       response.status = e.status.to_i
       user = FetchUserDetail.new(App.config).call(user_id)
-      view :admin_user_form, locals: { user: user, current_account: @current_account, is_edit: true }
+      view :admin_user_form,
+           locals: { user: user, current_account: @current_account, is_edit: true }
     end
 
     def handle_admin_delete_user(routing, user_id)
@@ -611,17 +624,21 @@ module SecureBiddingApp
       end
 
       user = FetchUserDetail.new(App.config).call(user_id)
-      roles = ['admin', 'user']
+      roles = %w[admin user]
       current_roles = system_roles_of(user)
-      view :admin_user_roles, locals: { user: user, roles: roles, current_roles: current_roles, current_account: @current_account }
+      view :admin_user_roles,
+           locals: { user: user, roles: roles, current_roles: current_roles,
+                     current_account: @current_account }
     rescue FetchUserDetail::NotFoundError
       response.status = 404
       flash.now[:error] = 'User not found'
-      view :admin_user_roles, locals: { user: nil, roles: [], current_roles: [], current_account: @current_account }
+      view :admin_user_roles,
+           locals: { user: nil, roles: [], current_roles: [], current_account: @current_account }
     rescue FetchUserDetail::ServiceError => e
       response.status = 500
       flash.now[:error] = e.message
-      view :admin_user_roles, locals: { user: nil, roles: [], current_roles: [], current_account: @current_account }
+      view :admin_user_roles,
+           locals: { user: nil, roles: [], current_roles: [], current_account: @current_account }
     end
 
     def handle_admin_user_roles_post(routing, user_id)
@@ -641,16 +658,20 @@ module SecureBiddingApp
       flash.now[:error] = e.message
       response.status = 400
       user = FetchUserDetail.new(App.config).call(user_id)
-      roles = ['admin', 'user']
+      roles = %w[admin user]
       current_roles = system_roles_of(user)
-      view :admin_user_roles, locals: { user: user, roles: roles, current_roles: current_roles, current_account: @current_account }
+      view :admin_user_roles,
+           locals: { user: user, roles: roles, current_roles: current_roles,
+                     current_account: @current_account }
     rescue ApiClient::ApiError => e
       flash.now[:error] = api_error_message(e, 'Failed to assign role')
       response.status = e.status.to_i
       user = FetchUserDetail.new(App.config).call(user_id)
-      roles = ['admin', 'user']
+      roles = %w[admin user]
       current_roles = system_roles_of(user)
-      view :admin_user_roles, locals: { user: user, roles: roles, current_roles: current_roles, current_account: @current_account }
+      view :admin_user_roles,
+           locals: { user: user, roles: roles, current_roles: current_roles,
+                     current_account: @current_account }
     end
   end
 end

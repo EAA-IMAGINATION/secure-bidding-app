@@ -12,12 +12,9 @@ module SecureBiddingApp
 
     def call(project_id)
       client = ApiClient.new(@config.API_URL)
-      response = client.get("/projects/#{project_id}")
-      response
+      client.get("/projects/#{project_id}")
     rescue ApiClient::ApiError => e
-      if e.status == 404
-        raise NotFoundError, "Project not found"
-      end
+      raise NotFoundError, 'Project not found' if e.status == 404
 
       raise ServiceError, "Failed to fetch project: #{e.message}"
     end

@@ -16,9 +16,7 @@ module SecureBiddingApp
       payload = { system_role: system_role }
       @client.post("/accounts/#{account_id}/system_roles", payload)
     rescue ApiClient::ApiError => e
-      if e.body.is_a?(Hash) && e.body['error']
-        raise ValidationError, e.body['error']
-      end
+      raise ValidationError, e.body['error'] if e.body.is_a?(Hash) && e.body['error']
 
       raise ServiceError, "Failed to assign role: #{e.message}"
     end
@@ -27,7 +25,10 @@ module SecureBiddingApp
 
     def validate(system_role)
       raise ValidationError, 'System role is required' if system_role.to_s.strip.empty?
-      raise ValidationError, "System role must be 'admin' or 'user'" unless %w[admin user].include?(system_role)
+
+      return if %w[admin user].include?(system_role)
+
+      raise ValidationError, "System role must be 'admin' or 'user'"
     end
   end
 end

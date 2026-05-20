@@ -59,7 +59,8 @@ describe 'Week 12 Registration Flow' do
         .to_return(status: 200, body: '{"token":"jwt","account":{"id":"1","username":"alice","email":"alice@example.com"}}',
                    headers: { 'Content-Type' => 'application/json' })
 
-      result = VerifyRegistration.new(config).call(registration_token: 'token-value', password: 'secret')
+      result = VerifyRegistration.new(config).call(registration_token: 'token-value',
+                                                   password: 'secret')
 
       _(result['token']).must_equal 'jwt'
       _(result['account']['username']).must_equal 'alice'

@@ -28,7 +28,8 @@ describe 'Reset password flow' do
         .to_return(status: 200, body: '{"id":"abc","status":"updated"}',
                    headers: { 'Content-Type' => 'application/json' })
 
-      result = ResetAccountPassword.new(config).call(email: 'admin@example.com', password: 'new-secret')
+      result = ResetAccountPassword.new(config).call(email: 'admin@example.com',
+                                                     password: 'new-secret')
 
       _(result['id']).must_equal 'abc'
       _(result['username']).must_equal 'admin'

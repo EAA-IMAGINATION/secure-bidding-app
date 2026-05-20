@@ -15,6 +15,7 @@ module SecureBiddingApp
       @client.delete("/accounts/#{user_id}")
     rescue ApiClient::ApiError => e
       raise NotFoundError, 'User not found' if e.status == 404
+
       raise ServiceError, "Failed to delete account: #{e.message}"
     end
   end

@@ -10,10 +10,12 @@ module SecureBiddingApp
 
     def initialize(key = App.config.MSG_KEY)
       raise ArgumentError, 'MSG_KEY is not set' if key.to_s.strip.empty?
+
       raw_key = Base64.decode64(key)
       unless raw_key.bytesize == RbNaCl::SecretBox.key_bytes
         raise ArgumentError, 'MSG_KEY must be a base64-encoded 32 byte key'
       end
+
       @box = RbNaCl::SecretBox.new(raw_key)
     end
 
@@ -26,7 +28,7 @@ module SecureBiddingApp
     def decrypt(token)
       data = Base64.urlsafe_decode64(token.to_s)
       nonce = data[0, NONCE_SIZE]
-      ciphertext = data[NONCE_SIZE..-1]
+      ciphertext = data[NONCE_SIZE..]
       @box.decrypt(nonce, ciphertext)
     end
   end

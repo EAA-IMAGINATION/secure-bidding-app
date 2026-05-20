@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'minitest/autorun'
 require 'webmock/minitest'
 require 'ostruct'
@@ -16,7 +18,8 @@ class CreateAccountTest < Minitest::Test
   end
 
   def test_successful_call
-    stub_request(:post, "#{@base}/accounts").to_return(status: 201, body: '{"username":"jdoe"}', headers: { 'Content-Type' => 'application/json' })
+    stub_request(:post, "#{@base}/accounts").to_return(status: 201, body: '{"username":"jdoe"}',
+                                                       headers: { 'Content-Type' => 'application/json' })
     res = @service.call(email: 'a@b.com', username: 'jdoe', password: 'secret')
     assert_equal({ 'username' => 'jdoe' }, res)
   end

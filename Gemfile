@@ -23,8 +23,8 @@ gem 'puma', '~>7.0'
 gem 'rackup'
 
 # Development utilities
-gem 'pry'
 gem 'ostruct'
+gem 'pry'
 
 group :development do
   gem 'bundler-audit'
@@ -47,4 +47,4 @@ end
 gem 'redis'
 gem 'redis-rack'
 # Ensure logger stdlib is available as a gem on newer Rubies
-gem "logger"
+gem 'logger'

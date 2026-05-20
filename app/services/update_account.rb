@@ -16,9 +16,7 @@ module SecureBiddingApp
       payload = { email: email }
       @client.patch("/accounts/#{user_id}", payload)
     rescue ApiClient::ApiError => e
-      if e.body.is_a?(Hash) && e.body['error']
-        raise ValidationError, e.body['error']
-      end
+      raise ValidationError, e.body['error'] if e.body.is_a?(Hash) && e.body['error']
 
       raise ServiceError, "Failed to update account: #{e.message}"
     end

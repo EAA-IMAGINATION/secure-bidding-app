@@ -119,7 +119,7 @@ module SecureBiddingApp
       routing.env['CONTENT_TYPE'].to_s.start_with?('application/json')
     end
 
-    def json_login_success(routing, account)
+    def json_login_success(_routing, account)
       response['Content-Type'] = 'application/json'
       response.status = 200
       {

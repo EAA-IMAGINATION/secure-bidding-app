@@ -20,12 +20,9 @@ module SecureBiddingApp
         state: state
       }
 
-      response = client.patch("/projects/#{project_id}", body)
-      response
+      client.patch("/projects/#{project_id}", body)
     rescue ApiClient::ApiError => e
-      if e.body.is_a?(Hash) && e.body['error']
-        raise ValidationError, e.body['error']
-      end
+      raise ValidationError, e.body['error'] if e.body.is_a?(Hash) && e.body['error']
 
       raise ServiceError, "Failed to update project: #{e.message}"
     end
@@ -34,8 +31,15 @@ module SecureBiddingApp
 
     def validate_params(title, budget_cents, state)
       raise ValidationError, 'Title cannot be empty' if title.to_s.strip.empty?
-      raise ValidationError, 'Budget must be a non-negative integer' unless budget_cents.to_s.match?(/\A\d+\z/)
-      raise ValidationError, "State must be 'saved' or 'published'" unless %w[saved published].include?(state)
+
+      unless budget_cents.to_s.match?(/\A\d+\z/)
+        raise ValidationError,
+              'Budget must be a non-negative integer'
+      end
+
+      return if %w[saved published].include?(state)
+
+      raise ValidationError, "State must be 'saved' or 'published'"
     end
   end
 end

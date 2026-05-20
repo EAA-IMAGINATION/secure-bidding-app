@@ -38,7 +38,8 @@ describe 'Auth Controller' do
     end
 
     it 'returns 400 on missing password' do
-      post '/api/v1/auth/authenticate', { username: 'user@example.com' }.to_json, { 'CONTENT_TYPE' => 'application/json' }
+      post '/api/v1/auth/authenticate', { username: 'user@example.com' }.to_json,
+           { 'CONTENT_TYPE' => 'application/json' }
       _(last_response.status).must_equal 400
     end
 

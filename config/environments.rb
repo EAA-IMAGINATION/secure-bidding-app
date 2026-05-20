@@ -59,9 +59,16 @@ module SecureBiddingApp
 
       # Prefer Redis session store in production when a Redis URL is provided
       # Prefer explicit environment variables over config file to support Heroku
-      sess_secret = ENV['SESSION_SECRET'] && !ENV['SESSION_SECRET'].strip.empty? ? ENV['SESSION_SECRET'] : config.SESSION_SECRET
+      env_secret = ENV.fetch('SESSION_SECRET', nil)
+      sess_secret = if env_secret && !env_secret.strip.empty?
+                      env_secret
+                    else
+                      config.SESSION_SECRET
+                    end
       if sess_secret.to_s.bytesize < 64
-        raise ArgumentError, 'SESSION_SECRET must be at least 64 bytes; run bundle exec rake generate:session_secret'
+        raise ArgumentError,
+              'SESSION_SECRET must be at least 64 bytes; ' \
+              'run bundle exec rake generate:session_secret'
       end
 
       redis_url = if config.REDIS_URL && !config.REDIS_URL.to_s.strip.empty?
@@ -73,7 +80,8 @@ module SecureBiddingApp
       if redis_url
         require 'redis'
         require 'redis-rack'
-        use Rack::Session::Redis, redis_server: redis_url, expire_after: ONE_MONTH, secret: sess_secret
+        use Rack::Session::Redis, redis_server: redis_url, expire_after: ONE_MONTH,
+                                  secret: sess_secret
       else
         use Rack::Session::Cookie, expire_after: ONE_MONTH, secret: sess_secret
       end

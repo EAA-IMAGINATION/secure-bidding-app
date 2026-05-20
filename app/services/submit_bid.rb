@@ -25,20 +25,15 @@ module SecureBiddingApp
         plaintext_bid: plaintext_bid
       }
 
-      response = client.post("/projects/#{project_id}/bids", body)
-      response
+      client.post("/projects/#{project_id}/bids", body)
     rescue ApiClient::ApiError => e
       if e.status == 403
-        if e.body.is_a?(Hash) && e.body['error']
-          raise AuthorizationError, e.body['error']
-        end
+        raise AuthorizationError, e.body['error'] if e.body.is_a?(Hash) && e.body['error']
 
         raise AuthorizationError, 'You are not authorized to bid on this project'
       end
 
-      if e.body.is_a?(Hash) && e.body['error']
-        raise ValidationError, e.body['error']
-      end
+      raise ValidationError, e.body['error'] if e.body.is_a?(Hash) && e.body['error']
 
       raise ServiceError, "Failed to submit bid: #{e.message}"
     end

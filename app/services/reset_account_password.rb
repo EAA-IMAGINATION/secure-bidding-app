@@ -18,8 +18,6 @@ module SecureBiddingApp
 
       @client.patch("/accounts/#{account['id']}", { password: password })
       account
-    rescue ApiClient::ApiError => e
-      raise e
     end
 
     private

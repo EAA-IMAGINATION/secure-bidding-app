@@ -41,7 +41,12 @@ module SecureBiddingApp
     end
 
     def delete(path, body = nil, headers: {})
-      response = body ? request(headers).delete(url(path), body: body.to_json) : request(headers).delete(url(path))
+      response = if body
+                   request(headers).delete(url(path),
+                                           body: body.to_json)
+                 else
+                   request(headers).delete(url(path))
+                 end
       parse(response)
     end
 

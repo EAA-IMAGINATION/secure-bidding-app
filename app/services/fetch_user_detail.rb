@@ -15,6 +15,7 @@ module SecureBiddingApp
       @client.get("/accounts/#{user_id}")
     rescue ApiClient::ApiError => e
       raise NotFoundError, 'User not found' if e.status == 404
+
       raise ServiceError, "Failed to fetch user: #{e.message}"
     end
   end

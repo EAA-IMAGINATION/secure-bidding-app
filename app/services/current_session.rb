@@ -3,7 +3,8 @@
 module SecureBiddingApp
   # Encapsulates secure session state for the current account and registration flow.
   class CurrentSession
-    def initialize(session, secure_session = SecureSession.new, registration_token = RegistrationToken.new)
+    def initialize(session, secure_session = SecureSession.new,
+                   registration_token = RegistrationToken.new)
       @session = session
       @secure_session = secure_session
       @registration_token = registration_token
