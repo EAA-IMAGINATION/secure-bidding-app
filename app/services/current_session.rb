@@ -39,5 +39,10 @@ module SecureBiddingApp
     def delete_pending_registration
       @secure_session.delete(@session, :pending_registration)
     end
+
+    def auth_token
+      account = @secure_session.get(@session, :current_account)
+      account&.dig('token')
+    end
   end
 end

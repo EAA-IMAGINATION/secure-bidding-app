@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module SecureBiddingApp
-  # Service to fetch published projects from the API
+  # Service to fetch projects from the API
   class FetchProjects
     class ServiceError < StandardError; end
 
@@ -9,9 +9,22 @@ module SecureBiddingApp
       @config = config
     end
 
-    def call
-      client = ApiClient.new(@config.API_URL)
-      response = client.get('/projects')
+    def call(auth_token: nil, scope: :published)
+      headers = {}
+      headers['Authorization'] = "Bearer #{auth_token}" if auth_token
+
+      client = ApiClient.new(@config.API_URL, default_headers: headers)
+
+      endpoint = case scope
+                 when :user_projects
+                   '/projects/my'
+                 when :published
+                   '/projects'
+                 else
+                   '/projects'
+                 end
+
+      response = client.get(endpoint)
       response['projects'] || []
     rescue ApiClient::ApiError => e
       raise ServiceError, "Failed to fetch projects: #{e.message}"

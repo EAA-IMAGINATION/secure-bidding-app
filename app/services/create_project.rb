@@ -10,16 +10,18 @@ module SecureBiddingApp
       @config = config
     end
 
-    def call(title:, budget_cents:, state: 'saved', owner_account_id: nil)
+    def call(title:, budget_cents:, state: 'saved', auth_token: nil)
       validate_params(title, budget_cents, state)
 
-      client = ApiClient.new(@config.API_URL)
+      headers = {}
+      headers['Authorization'] = "Bearer #{auth_token}" if auth_token
+
+      client = ApiClient.new(@config.API_URL, default_headers: headers)
       body = {
         title: title,
         budget_cents: budget_cents,
         state: state
       }
-      body['owner_account_id'] = owner_account_id if owner_account_id
 
       client.post('/projects', body)
     rescue ApiClient::ApiError => e

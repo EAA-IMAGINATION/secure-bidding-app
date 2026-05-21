@@ -10,10 +10,13 @@ module SecureBiddingApp
       @config = config
     end
 
-    def call(project_id:, title:, budget_cents:, state:)
+    def call(project_id:, title:, budget_cents:, state:, auth_token: nil)
       validate_params(title, budget_cents, state)
 
-      client = ApiClient.new(@config.API_URL)
+      headers = {}
+      headers['Authorization'] = "Bearer #{auth_token}" if auth_token
+
+      client = ApiClient.new(@config.API_URL, default_headers: headers)
       body = {
         title: title,
         budget_cents: budget_cents,

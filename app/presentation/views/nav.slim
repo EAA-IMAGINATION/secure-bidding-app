@@ -10,6 +10,8 @@ nav.navbar.navbar-expand-lg.navbar-dark.bg-primary.shadow-sm role="navigation"
         - if @current_account
           li.nav-item
             a.nav-link href="/" Home
+          li.nav-item
+            a.nav-link href="/projects/my" My Projects
           - if system_roles_of(@current_account).include?('admin')
             li.nav-item
               a.nav-link href="/admin/users" Admin Users

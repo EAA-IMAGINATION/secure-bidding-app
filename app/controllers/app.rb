@@ -148,6 +148,13 @@ module SecureBiddingApp
         end
       end
 
+      routing.on 'my' do
+        routing.get do
+          require_login!(routing)
+          handle_my_projects(routing)
+        end
+      end
+
       routing.on String do |project_id|
         routing.on 'bids' do
           routing.post do
@@ -214,6 +221,26 @@ module SecureBiddingApp
       []
     end
 
+    def get_auth_token
+      @current_session.auth_token
+    end
+
+
+    def handle_my_projects(routing)
+      token = get_auth_token
+      unless token
+        flash[:error] = 'You must log in to view your projects'
+        return routing.redirect '/auth/login'
+      end
+
+      projects = FetchProjects.new(App.config).call(auth_token: token, scope: :user_projects)
+      view :my_projects, locals: { current_account: @current_account, projects: projects }
+    rescue FetchProjects::ServiceError => e
+      flash.now[:error] = "Failed to fetch your projects: #{e.message}"
+      response.status = 500
+      view :my_projects, locals: { current_account: @current_account, projects: [] }
+    end
+
     def handle_project_detail(_routing, project_id)
       project = FetchProjectDetail.new(App.config).call(project_id)
       is_owner = false # API doesn't return owner info, will be enforced on bid submission
@@ -247,7 +274,8 @@ module SecureBiddingApp
       result = CreateProject.new(App.config).call(
         title: title,
         budget_cents: budget_cents,
-        state: state
+        state: state,
+        auth_token: get_auth_token
       )
 
       flash[:notice] = "Project created successfully (ID: #{result['id']})"
@@ -436,7 +464,8 @@ module SecureBiddingApp
         project_id: project_id,
         title: title,
         budget_cents: budget_cents,
-        state: state
+        state: state,
+        auth_token: get_auth_token
       )
 
       flash[:notice] = "Project #{project_id} updated successfully"
@@ -460,7 +489,7 @@ module SecureBiddingApp
         return routing.redirect "/projects/#{project_id}"
       end
 
-      DeleteProject.new(App.config).call(project_id: project_id)
+      DeleteProject.new(App.config).call(project_id: project_id, auth_token: get_auth_token)
 
       flash[:notice] = "Project #{project_id} deleted successfully"
       routing.redirect '/'

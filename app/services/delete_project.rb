@@ -10,8 +10,11 @@ module SecureBiddingApp
       @config = config
     end
 
-    def call(project_id:)
-      client = ApiClient.new(@config.API_URL)
+    def call(project_id:, auth_token: nil)
+      headers = {}
+      headers['Authorization'] = "Bearer #{auth_token}" if auth_token
+
+      client = ApiClient.new(@config.API_URL, default_headers: headers)
       client.delete("/projects/#{project_id}")
     rescue ApiClient::ApiError => e
       raise NotFoundError, 'Project not found' if e.status == 404
