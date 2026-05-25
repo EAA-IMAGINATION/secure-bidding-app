@@ -5,7 +5,7 @@ require 'webmock/minitest'
 require 'ostruct'
 
 describe 'Week 12 Registration Flow' do
-  let(:base_url) { 'http://localhost:3000/api/v1' }
+  let(:base_url) { 'http://localhost:3001/api/v1' }
   let(:config) { OpenStruct.new(API_URL: base_url) }
 
   before do

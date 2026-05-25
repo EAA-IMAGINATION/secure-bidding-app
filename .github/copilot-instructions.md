@@ -35,7 +35,7 @@ the database and enforces authorization. This app handles:
 
 ## Backend: Secure Bidding API Reference
 
-The app consumes a Ruby/Roda REST API at `http://localhost:3000/api/v1`.
+The app consumes a Ruby/Roda REST API at `http://localhost:3001/api/v1`.
 
 ### Core API Endpoints (Week 1 Relevant)
 
@@ -365,7 +365,7 @@ Create `.env` equivalent in `config/secrets.yml` (copy from
 
 ```yaml
 development:
-  API_URL: http://localhost:3000/api/v1
+  API_URL: http://localhost:3001/api/v1
   APP_URL: http://localhost:9292
   SESSION_SECRET: <generate with `rake generate:session_secret`>
 ```
