@@ -7,61 +7,16 @@ div class="row justify-content-center"
         p class="text-muted mb-4"
           | Start with your username and email. We will send a verification email before completing registration.
 
-        form action="#{@api_url}/auth/register" method="post" id="form-register"
-          div class="mb-3"
-            label.form-label for="input-username" Username
-            input#input-username.form-control type="text" name="username" placeholder="Choose a username" required="required" autofocus="autofocus"
+form method="post" action="/register" id="form-register"
+  div class="mb-3"
+    label.form-label for="input-username" Username
+    input#input-username.form-control type="text" name="username" placeholder="Choose a username" required="required" autofocus="autofocus"
 
-          div class="mb-3"
-            label.form-label for="input-email" Email
-            input#input-email.form-control type="email" name="email" placeholder="name@example.com" required="required"
+  div class="mb-3"
+    label.form-label for="input-email" Email
+    input#input-email.form-control type="email" name="email" placeholder="name@example.com" required="required"
 
-          button.btn.btn-primary.btn-lg.w-100 type="submit" Register
+  button.btn.btn-primary.btn-lg.w-100 type="submit" Register
 
-        div class="text-center mt-3"
-          a href="/auth/login" class="link-secondary text-decoration-none" Back to login
-
-javascript:
-  document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('form-register');
-    const flashContainer = document.getElementById('flash-container');
-    if (!form || !flashContainer) return;
-
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-
-      const payload = {
-        username: document.getElementById('input-username').value,
-        email: document.getElementById('input-email').value
-      };
-
-      const response = await fetch(form.action, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json().catch(() => ({}));
-
-      if (response.ok) {
-        flashContainer.innerHTML = `
-          <div class="alert alert-success alert-dismissible fade show" role="alert">
-            ${data.message || 'Check your email to verify your account'}
-            <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close"></button>
-          </div>
-        `;
-        form.reset();
-        return;
-      }
-
-      flashContainer.innerHTML = `
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-          ${data.error || 'Registration failed'}
-          <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-      `;
-    });
-  });
+div class="text-center mt-3"
+  a href="/auth/login" class="link-secondary text-decoration-none" Back to login
