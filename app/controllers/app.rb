@@ -162,6 +162,20 @@ module SecureBiddingApp
           end
         end
 
+        routing.on 'memberships' do
+          routing.post do
+            require_login!(routing)
+            handle_add_membership_post(routing, project_id)
+          end
+
+          routing.on 'accept' do
+            routing.post do
+              require_login!(routing)
+              handle_accept_membership_post(routing, project_id)
+            end
+          end
+        end
+
         routing.on 'edit' do
           routing.get do
             require_login!(routing)
@@ -236,6 +250,55 @@ module SecureBiddingApp
       @current_session.auth_token
     end
 
+    def handle_add_membership_post(routing, project_id)
+      account_id = routing.params['account_id'].to_s.strip
+      if account_id.empty?
+        flash.now[:error] = 'Account ID is required'
+        response.status = 400
+        project = FetchProjectDetail.new(App.config).call(project_id)
+        return view :project_detail, locals: { project: project, current_account: @current_account, is_owner: false }
+      end
+
+      result = CreateProjectMembership.new(App.config).call(
+        project_id: project_id,
+        account_id: account_id,
+        auth_token: get_auth_token
+      )
+
+      if result.is_a?(Hash) && result['status'] == 'pending'
+        flash[:notice] = 'Invitation sent — user must accept to become project owner'
+      else
+        flash[:notice] = 'User added as project owner'
+      end
+
+      routing.redirect "/projects/#{project_id}"
+    rescue CreateProjectMembership::ValidationError => e
+      flash.now[:error] = e.message
+      response.status = 400
+      project = FetchProjectDetail.new(App.config).call(project_id)
+      view :project_detail, locals: { project: project, current_account: @current_account, is_owner: false }
+    rescue ApiClient::ApiError => e
+      flash.now[:error] = api_error_message(e, 'Failed to add co-owner')
+      response.status = e.status.to_i
+      project = FetchProjectDetail.new(App.config).call(project_id)
+      view :project_detail, locals: { project: project, current_account: @current_account, is_owner: false }
+    end
+
+    def handle_accept_membership_post(routing, project_id)
+      AcceptProjectMembership.new(App.config).call(project_id: project_id, auth_token: get_auth_token)
+      flash[:notice] = 'You are now a project owner'
+      routing.redirect "/projects/#{project_id}"
+    rescue AcceptProjectMembership::PermissionError => e
+      flash.now[:error] = e.message
+      response.status = 403
+      project = FetchProjectDetail.new(App.config).call(project_id)
+      view :project_detail, locals: { project: project, current_account: @current_account, is_owner: false }
+    rescue ApiClient::ApiError => e
+      flash.now[:error] = api_error_message(e, 'Failed to accept invitation')
+      response.status = e.status.to_i
+      project = FetchProjectDetail.new(App.config).call(project_id)
+      view :project_detail, locals: { project: project, current_account: @current_account, is_owner: false }
+    end
 
     def handle_my_projects(routing)
       unless @current_account
