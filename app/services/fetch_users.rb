@@ -11,7 +11,8 @@ module SecureBiddingApp
     end
 
     def call
-      @client.get('/accounts')
+      res = @client.get('/accounts')
+      Account.from_array(res['accounts'] || [])
     rescue ApiClient::ApiError => e
       raise ServiceError, "Failed to fetch users: #{e.message}"
     end

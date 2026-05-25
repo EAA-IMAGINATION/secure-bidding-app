@@ -210,6 +210,17 @@ module SecureBiddingApp
       system_roles_of(current_account).include?('admin')
     end
 
+    # Check API-provided policy summaries to determine whether an action is allowed on a resource.
+    # If the API did not return a policy for the resource, fall back to the existing server-side checks in views.
+    def allowed?(resource, action)
+      return true unless resource.is_a?(Hash) && resource['policy'].is_a?(Hash)
+
+      policy = resource['policy']
+      key = action.to_s
+      variants = [key, key.gsub('-', '_'), key.gsub(' ', '_'), "#{key}_allowed"]
+      variants.any? { |k| !!policy[k] }
+    end
+
     def number_to_currency(amount)
       format('$%.2f', amount)
     end
@@ -267,14 +278,25 @@ module SecureBiddingApp
         return view :project_new
       end
 
-      title = routing.params['title'].to_s.strip
-      budget_cents = routing.params['budget_cents'].to_s.strip
-      state = routing.params['state'].to_s.strip
+      # Validate
+      validation = Forms::ProjectNew.new.call(
+        title: routing.params['title'].to_s.strip,
+        budget_cents: routing.params['budget_cents'].to_s.strip.empty? ? nil : routing.params['budget_cents'].to_s.strip.to_i,
+        state: routing.params['state'].to_s.strip
+      )
+
+      if validation.failure?
+        flash.now[:error] = validation.errors.to_h.map { |k, v| "#{k} #{v.join(', ')}" }.join('; ')
+        response.status = 400
+        return view :project_new
+      end
+
+      validated = validation.to_h
 
       result = CreateProject.new(App.config).call(
-        title: title,
-        budget_cents: budget_cents,
-        state: state,
+        title: validated[:title],
+        budget_cents: validated[:budget_cents].to_s,
+        state: validated[:state],
         auth_token: get_auth_token
       )
 
@@ -304,14 +326,27 @@ module SecureBiddingApp
         }
       end
 
-      contractor_alias = routing.params['contractor_alias'].to_s.strip
-      plaintext_bid = routing.params['plaintext_bid'].to_s.strip
+      # Validate
+      validation = Forms::BidSubmission.new.call(
+        contractor_alias: routing.params['contractor_alias'].to_s.strip,
+        plaintext_bid: routing.params['plaintext_bid'].to_s.strip
+      )
+
+      if validation.failure?
+        flash.now[:error] = validation.errors.to_h.map { |k, v| "#{k} #{v.join(', ')}" }.join('; ')
+        response.status = 400
+        project = FetchProjectDetail.new(App.config).call(project_id)
+        return view :project_detail,
+             locals: { project: project, current_account: @current_account, is_owner: false }
+      end
+
+      validated = validation.to_h
 
       result = SubmitBid.new(App.config).call(
         project_id: project_id,
         bidder_account_id: @current_account['id'],
-        contractor_alias: contractor_alias,
-        plaintext_bid: plaintext_bid,
+        contractor_alias: validated[:contractor_alias],
+        plaintext_bid: validated[:plaintext_bid],
         auth_token: @current_account['token']
       )
 
@@ -338,10 +373,20 @@ module SecureBiddingApp
     end
 
     def handle_registration_post(routing)
-      username = routing.params['username'].to_s.strip
-      email = routing.params['email'].to_s.strip
+      validation = Forms::Register.new.call(
+        username: routing.params['username'].to_s.strip,
+        email: routing.params['email'].to_s.strip
+      )
 
-      InitiateRegistration.new(App.config).call(username: username, email: email)
+      if validation.failure?
+        flash.now[:error] = validation.errors.to_h.map { |k, v| "#{k} #{v.join(', ')}" }.join('; ')
+        response.status = 400
+        return view :register
+      end
+
+      validated = validation.to_h
+
+      InitiateRegistration.new(App.config).call(username: validated[:username], email: validated[:email])
       flash[:notice] = 'Check your email to verify your account'
       routing.redirect '/register'
     rescue InitiateRegistration::ValidationError => e
@@ -375,11 +420,13 @@ module SecureBiddingApp
     end
 
     def handle_registration_verify_post(routing, token)
-      password = routing.params['password'].to_s
-      password_confirm = routing.params['password_confirm'].to_s
+      validation = Forms::Verify.new.call(
+        password: routing.params['password'].to_s,
+        password_confirm: routing.params['password_confirm'].to_s
+      )
 
-      if password.empty? || password != password_confirm
-        flash.now[:error] = 'Passwords did not match'
+      if validation.failure?
+        flash.now[:error] = validation.errors.to_h.map { |k, v| "#{k} #{v.join(', ')}" }.join('; ')
         response.status = 400
         @verification_token = token
         registration = RegistrationToken.new.decode(token)
@@ -388,9 +435,11 @@ module SecureBiddingApp
         return view :register_verify
       end
 
+      validated = validation.to_h
+
       result = VerifyRegistration.new(App.config).call(
         registration_token: token,
-        password: password
+        password: validated[:password]
       )
 
       verified_account = result.fetch('account', {}).merge('token' => result['token'])
@@ -456,15 +505,27 @@ module SecureBiddingApp
         }
       end
 
-      title = routing.params['title'].to_s.strip
-      budget_cents = routing.params['budget_cents'].to_s.strip
-      state = routing.params['state'].to_s.strip
+      # Validate
+      validation = Forms::ProjectNew.new.call(
+        title: routing.params['title'].to_s.strip,
+        budget_cents: routing.params['budget_cents'].to_s.strip.empty? ? nil : routing.params['budget_cents'].to_s.strip.to_i,
+        state: routing.params['state'].to_s.strip
+      )
+
+      if validation.failure?
+        flash.now[:error] = validation.errors.to_h.map { |k, v| "#{k} #{v.join(', ')}" }.join('; ')
+        response.status = 400
+        project = FetchProjectDetail.new(App.config).call(project_id)
+        return view :project_edit, locals: { project: project, current_account: @current_account }
+      end
+
+      validated = validation.to_h
 
       UpdateProject.new(App.config).call(
         project_id: project_id,
-        title: title,
-        budget_cents: budget_cents,
-        state: state,
+        title: validated[:title],
+        budget_cents: validated[:budget_cents].to_s,
+        state: validated[:state],
         auth_token: get_auth_token
       )
 
@@ -554,12 +615,23 @@ module SecureBiddingApp
         return routing.redirect '/'
       end
 
-      username = routing.params['username'].to_s.strip
-      email = routing.params['email'].to_s.strip
+      validation = Forms::AdminUser.new.call(
+        username: routing.params['username'].to_s.strip,
+        email: routing.params['email'].to_s.strip
+      )
 
-      result = CreateAccount.new(App.config).call(username: username, email: email)
+      if validation.failure?
+        flash.now[:error] = validation.errors.to_h.map { |k, v| "#{k} #{v.join(', ')}" }.join('; ')
+        response.status = 400
+        return view :admin_user_form,
+             locals: { user: nil, current_account: @current_account, is_edit: false }
+      end
 
-      flash[:notice] = "User #{username} created successfully (ID: #{result['id']})"
+      validated = validation.to_h
+
+      result = CreateAccount.new(App.config).call(username: validated[:username], email: validated[:email])
+
+      flash[:notice] = "User #{validated[:username]} created successfully (ID: #{result['id']})"
       routing.redirect "/admin/users/#{result['id']}"
     rescue CreateAccount::ValidationError => e
       flash.now[:error] = e.message
@@ -605,9 +677,21 @@ module SecureBiddingApp
         return routing.redirect '/'
       end
 
-      email = routing.params['email'].to_s.strip
+      validation = Forms::AdminUserEdit.new.call(
+        email: routing.params['email'].to_s.strip
+      )
 
-      UpdateAccount.new(App.config).call(user_id: user_id, email: email)
+      if validation.failure?
+        flash.now[:error] = validation.errors.to_h.map { |k, v| "#{k} #{v.join(', ')}" }.join('; ')
+        response.status = 400
+        user = FetchUserDetail.new(App.config).call(user_id)
+        return view :admin_user_form,
+             locals: { user: user, current_account: @current_account, is_edit: true }
+      end
+
+      validated = validation.to_h
+
+      UpdateAccount.new(App.config).call(user_id: user_id, email: validated[:email])
 
       flash[:notice] = "User #{user_id} updated successfully"
       routing.redirect "/admin/users/#{user_id}"

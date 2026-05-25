@@ -25,7 +25,7 @@ module SecureBiddingApp
                  end
 
       response = client.get(endpoint)
-      response['projects'] || []
+      Project.from_array(response['projects'] || [])
     rescue ApiClient::ApiError => e
       raise ServiceError, "Failed to fetch projects: #{e.message}"
     end
