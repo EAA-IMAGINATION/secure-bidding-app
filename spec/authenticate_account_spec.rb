@@ -21,11 +21,11 @@ describe 'AuthenticateAccount Service' do
     end
 
     it 'requires password parameter' do
-      _ { service.call('user@example.com', nil) }.must_raise ArgumentError
+      _ { service.call(username: 'user@example.com', password: nil) }.must_raise ArgumentError
     end
 
     it 'requires both email and password' do
-      _ { service.call('', '') }.must_raise ArgumentError
+      _ { service.call(username: '', password: '') }.must_raise ArgumentError
     end
   end
 

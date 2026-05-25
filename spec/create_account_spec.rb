@@ -7,7 +7,7 @@ require_relative '../app/services/create_account'
 
 class CreateAccountTest < Minitest::Test
   def setup
-    @base = 'http://localhost:3000/api/v1'
+    @base = 'http://localhost:3001/api/v1'
     @service = SecureBiddingApp::CreateAccount.new(OpenStruct.new(API_URL: @base))
   end
 

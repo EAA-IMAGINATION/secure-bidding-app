@@ -3,7 +3,7 @@
 require_relative 'spec_helper'
 
 describe 'ApiClient Service' do
-  let(:client) { ApiClient.new('http://localhost:3000') }
+  let(:client) { ApiClient.new('http://localhost:3001') }
 
   describe '#initialize' do
     it 'stores base URL' do
