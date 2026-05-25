@@ -15,14 +15,7 @@ module SecureBiddingApp
 
       client = ApiClient.new(@config.API_URL, default_headers: headers)
 
-      endpoint = case scope
-                 when :user_projects
-                   '/projects/my'
-                 when :published
-                   '/projects'
-                 else
-                   '/projects'
-                 end
+      endpoint = '/projects'
 
       response = client.get(endpoint)
       Project.from_array(response['projects'] || [])

@@ -16,7 +16,7 @@ div class="row justify-content-center mt-4"
                 - roles.each do |role|
                   - selected = current_roles.include?(role) ? 'selected="true"' : ''
                   option value="#{role}" selected="#{selected}"
-                    = role.capitalize
+                    = role.tr('_', ' ').split.map(&:capitalize).join(' ')
 
             button type="submit" class="btn btn-primary w-100" Assign Role
     - else
