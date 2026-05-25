@@ -24,7 +24,12 @@
                     .badge class=("bg-primary" if project['state'] == 'saved') class=("bg-success" if project['state'] == 'published')
                       = project['state'] || 'Unknown'
                   td
-                    a.btn.btn-sm.btn-primary href="/projects/#{project['id']}/edit" View/Edit
+                    .btn-group role="group"
+                      a.btn.btn-sm.btn-info href="/projects/#{project['id']}" View
+                      - if current_account && admin?(current_account)
+                        a.btn.btn-sm.btn-warning href="/projects/#{project['id']}/edit" Edit
+                      - if project['state'] == 'published' && current_account && !admin?(current_account)
+                        a.btn.btn-sm.btn-primary href="/projects/#{project['id']}" Bid
       - else
         .alert.alert-info
           p No projects are available yet.

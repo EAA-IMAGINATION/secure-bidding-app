@@ -221,7 +221,12 @@ module SecureBiddingApp
     end
 
     def admin?(current_account)
-      system_roles_of(current_account).include?('admin')
+      return false unless current_account
+
+      # Check system_role field (singular) - the main role assigned to the account
+      current_account['system_role'] == 'admin' ||
+        # Also check system_roles array for backward compatibility
+        system_roles_of(current_account).include?('admin')
     end
 
     # Check API-provided policy summaries to determine whether an action is allowed on a resource.
