@@ -12,7 +12,8 @@ module SecureBiddingApp
 
     def call(project_id)
       client = ApiClient.new(@config.API_URL)
-      client.get("/projects/#{project_id}")
+      res = client.get("/projects/#{project_id}")
+      Project.from_hash(res)
     rescue ApiClient::ApiError => e
       raise NotFoundError, 'Project not found' if e.status == 404
 

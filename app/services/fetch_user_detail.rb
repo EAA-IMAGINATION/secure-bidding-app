@@ -12,7 +12,8 @@ module SecureBiddingApp
     end
 
     def call(user_id)
-      @client.get("/accounts/#{user_id}")
+      res = @client.get("/accounts/#{user_id}")
+      Account.from_hash(res)
     rescue ApiClient::ApiError => e
       raise NotFoundError, 'User not found' if e.status == 404
 

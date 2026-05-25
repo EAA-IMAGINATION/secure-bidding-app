@@ -44,8 +44,16 @@ module SecureBiddingApp
 
     def handle_login_post(routing)
       payload = login_payload(routing)
-      username = payload['username'].to_s.strip
-      password = payload['password'].to_s
+      validation = Forms::Login.new.call(payload.transform_keys(&:to_sym))
+      
+      if validation.failure?
+        error_msg = validation.errors.to_h.map { |k, v| "#{k} #{v.join(', ')}" }.join('; ')
+        raise StandardError, error_msg
+      end
+
+      validated_data = validation.to_h
+      username = validated_data[:username]
+      password = validated_data[:password]
 
       authenticate_and_redirect(routing, username, password)
     rescue AuthenticateAccount::UnauthorizedError => e
@@ -53,7 +61,7 @@ module SecureBiddingApp
     rescue JSON::ParserError => e
       handle_login_error(routing, e, 'Invalid JSON payload', 400)
     rescue StandardError => e
-      handle_login_error(routing, e, 'An error occurred during login', 400)
+      handle_login_error(routing, e, e.message, 400)
     end
 
     def authenticate_and_redirect(routing, username, password)
