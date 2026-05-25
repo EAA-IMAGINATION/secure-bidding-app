@@ -4,7 +4,7 @@ require_relative 'spec_helper'
 require 'ostruct'
 
 describe 'AssignSystemRole Service' do
-  let(:base_url) { 'http://localhost:3001/api/v1' }
+  let(:base_url) { 'http://localhost:3000/api/v1' }
   let(:service) { AssignSystemRole.new(OpenStruct.new(API_URL: base_url)) }
 
   it 'posts the API role payload using role' do

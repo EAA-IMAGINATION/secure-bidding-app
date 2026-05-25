@@ -4,7 +4,7 @@ require_relative 'spec_helper'
 require 'webmock/minitest'
 
 describe 'Frontend UI flows' do
-  let(:base_url) { 'http://localhost:3001/api/v1' }
+  let(:base_url) { 'http://localhost:3000/api/v1' }
 
   before do
     WebMock.disable_net_connect!

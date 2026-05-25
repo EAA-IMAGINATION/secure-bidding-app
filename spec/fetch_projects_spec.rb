@@ -4,7 +4,7 @@ require_relative 'spec_helper'
 require 'ostruct'
 
 describe 'FetchProjects Service' do
-  let(:base_url) { 'http://localhost:3001/api/v1' }
+  let(:base_url) { 'http://localhost:3000/api/v1' }
   let(:service) { FetchProjects.new(OpenStruct.new(API_URL: base_url)) }
 
   it 'uses the published projects endpoint for the default scope' do
