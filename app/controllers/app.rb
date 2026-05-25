@@ -238,13 +238,12 @@ module SecureBiddingApp
 
 
     def handle_my_projects(routing)
-      token = get_auth_token
-      unless token
+      unless @current_account
         flash[:error] = 'You must log in to view your projects'
         return routing.redirect '/auth/login'
       end
 
-      projects = FetchProjects.new(App.config).call(auth_token: token, scope: :user_projects)
+      projects = FetchProjects.new(App.config).call
       view :my_projects, locals: { current_account: @current_account, projects: projects }
     rescue FetchProjects::ServiceError => e
       flash.now[:error] = "Failed to fetch your projects: #{e.message}"
@@ -629,7 +628,11 @@ module SecureBiddingApp
 
       validated = validation.to_h
 
-      result = CreateAccount.new(App.config).call(username: validated[:username], email: validated[:email])
+      result = CreateAccount.new(App.config).call(
+        username: validated[:username],
+        email: validated[:email],
+        password: validated[:password]
+      )
 
       flash[:notice] = "User #{validated[:username]} created successfully (ID: #{result['id']})"
       routing.redirect "/admin/users/#{result['id']}"
@@ -737,7 +740,7 @@ module SecureBiddingApp
       end
 
       user = FetchUserDetail.new(App.config).call(user_id)
-      roles = %w[admin user]
+      roles = AssignSystemRole::VALID_ROLES
       current_roles = system_roles_of(user)
       view :admin_user_roles,
            locals: { user: user, roles: roles, current_roles: current_roles,
@@ -771,7 +774,7 @@ module SecureBiddingApp
       flash.now[:error] = e.message
       response.status = 400
       user = FetchUserDetail.new(App.config).call(user_id)
-      roles = %w[admin user]
+      roles = AssignSystemRole::VALID_ROLES
       current_roles = system_roles_of(user)
       view :admin_user_roles,
            locals: { user: user, roles: roles, current_roles: current_roles,
@@ -780,7 +783,7 @@ module SecureBiddingApp
       flash.now[:error] = api_error_message(e, 'Failed to assign role')
       response.status = e.status.to_i
       user = FetchUserDetail.new(App.config).call(user_id)
-      roles = %w[admin user]
+      roles = AssignSystemRole::VALID_ROLES
       current_roles = system_roles_of(user)
       view :admin_user_roles,
            locals: { user: user, roles: roles, current_roles: current_roles,

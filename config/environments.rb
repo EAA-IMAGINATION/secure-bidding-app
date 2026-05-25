@@ -88,6 +88,9 @@ module SecureBiddingApp
     end
 
     configure :development, :test do
+      ENV['API_URL'] ||= 'http://localhost:3000/api/v1'
+      ENV['APP_URL'] ||= 'http://localhost:9292'
+
       # Use pooled sessions in development and test to approximate non-cookie store
       require 'rack/session/pool'
       use Rack::Session::Pool, expire_after: ONE_MONTH
