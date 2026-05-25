@@ -56,6 +56,7 @@ module SecureBiddingApp
       params do
         required(:username).filled(:string)
         required(:email).filled(:string, format?: /\A[\w+\-.]+@[a-z\d\-.]+\.[a-z]+\z/i)
+        required(:password).filled(:string, min_size?: 8)
       end
     end
 

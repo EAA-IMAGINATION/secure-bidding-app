@@ -1,7 +1,7 @@
 .container.mt-5
   .row
     .col-12
-      h1.mb-4 My Projects
+      h1.mb-4 Projects
 
       - if projects && projects.length > 0
         .table-responsive
@@ -27,5 +27,5 @@
                     a.btn.btn-sm.btn-primary href="/projects/#{project['id']}/edit" View/Edit
       - else
         .alert.alert-info
-          p You haven't created any projects yet.
-          a.btn.btn-primary href="/projects/new" Create Your First Project
+          p No projects are available yet.
+          a.btn.btn-primary href="/projects/new" Create New Project

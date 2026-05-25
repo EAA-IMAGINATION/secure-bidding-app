@@ -5,6 +5,7 @@ module SecureBiddingApp
   class AssignSystemRole
     class ValidationError < StandardError; end
     class ServiceError < StandardError; end
+    VALID_ROLES = %w[system_admin project_owner bidder].freeze
 
     def initialize(config)
       @config = config
@@ -13,7 +14,7 @@ module SecureBiddingApp
 
     def call(account_id:, system_role:)
       validate(system_role)
-      payload = { system_role: system_role }
+      payload = { role: system_role }
       @client.post("/accounts/#{account_id}/system_roles", payload)
     rescue ApiClient::ApiError => e
       raise ValidationError, e.body['error'] if e.body.is_a?(Hash) && e.body['error']
@@ -26,9 +27,9 @@ module SecureBiddingApp
     def validate(system_role)
       raise ValidationError, 'System role is required' if system_role.to_s.strip.empty?
 
-      return if %w[admin user].include?(system_role)
+      return if VALID_ROLES.include?(system_role)
 
-      raise ValidationError, "System role must be 'admin' or 'user'"
+      raise ValidationError, "System role must be one of: #{VALID_ROLES.join(', ')}"
     end
   end
 end
