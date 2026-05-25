@@ -24,6 +24,7 @@ gem 'rackup'
 
 # Development utilities
 gem 'ostruct'
+gem 'dry-validation'
 gem 'pry'
 
 group :development do
