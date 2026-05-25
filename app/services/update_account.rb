@@ -11,10 +11,15 @@ module SecureBiddingApp
       @client = ApiClient.new(config.API_URL)
     end
 
-    def call(user_id:, email:)
+    def call(user_id:, email:, auth_token: nil)
       validate(email)
+      
+      headers = {}
+      headers['Authorization'] = "Bearer #{auth_token}" if auth_token
+      
       payload = { email: email }
-      @client.patch("/accounts/#{user_id}", payload)
+      client = auth_token ? ApiClient.new(@config.API_URL, default_headers: headers) : @client
+      client.patch("/accounts/#{user_id}", payload)
     rescue ApiClient::ApiError => e
       raise ValidationError, e.body['error'] if e.body.is_a?(Hash) && e.body['error']
 

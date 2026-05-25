@@ -762,7 +762,11 @@ module SecureBiddingApp
 
       validated = validation.to_h
 
-      UpdateAccount.new(App.config).call(user_id: user_id, email: validated[:email])
+      UpdateAccount.new(App.config).call(
+        user_id: user_id,
+        email: validated[:email],
+        auth_token: get_auth_token
+      )
 
       flash[:notice] = "User #{user_id} updated successfully"
       routing.redirect "/admin/users/#{user_id}"
@@ -787,7 +791,7 @@ module SecureBiddingApp
         return routing.redirect '/'
       end
 
-      DeleteAccount.new(App.config).call(user_id: user_id)
+      DeleteAccount.new(App.config).call(user_id: user_id, auth_token: get_auth_token)
 
       flash[:notice] = "User #{user_id} deleted successfully"
       routing.redirect '/admin/users'
@@ -834,7 +838,11 @@ module SecureBiddingApp
 
       system_role = routing.params['system_role'].to_s.strip
 
-      AssignSystemRole.new(App.config).call(account_id: user_id, system_role: system_role)
+      AssignSystemRole.new(App.config).call(
+        account_id: user_id,
+        system_role: system_role,
+        auth_token: get_auth_token
+      )
 
       flash[:notice] = "User #{user_id} role updated to #{system_role}"
       routing.redirect "/admin/users/#{user_id}/roles"
