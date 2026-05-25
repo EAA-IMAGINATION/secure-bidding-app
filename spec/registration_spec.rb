@@ -75,7 +75,8 @@ describe 'Week 12 Registration Flow' do
       _(last_response.status).must_equal 200
       _(last_response.body).must_include 'Username'
       _(last_response.body).must_include 'Email'
-      _(last_response.body).must_include 'action="/register"'
+      _(last_response.body).must_include "#{base_url}/auth/register"
+      _(last_response.body).wont_include 'action="/register"'
     end
   end
 
