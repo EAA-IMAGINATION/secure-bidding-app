@@ -1,4 +1,6 @@
-- system_roles = (@current_account&.dig('include', 'system_roles') || @current_account&.dig('system_roles') || []).sort
+- account ||= @current_account
+- system_roles = (account&.dig('include', 'system_roles') || account&.dig('system_roles') || []).sort
+- verified = account_email_verified?(account)
 
 div class="row justify-content-center mt-4"
   div class="col-md-9 col-lg-8"
@@ -10,11 +12,19 @@ div class="row justify-content-center mt-4"
         dl class="row mb-0"
           dt class="col-sm-3 text-muted" Username
           dd class="col-sm-9 mb-3"
-            = @current_account['username']
+            = account['username']
 
           dt class="col-sm-3 text-muted" Email
           dd class="col-sm-9 mb-3"
-            = @current_account['email']
+            = account['email']
+
+          dt class="col-sm-3 text-muted" Verification
+          dd class="col-sm-9 mb-3"
+            - if verified
+              span class="badge bg-success" Verified
+            - else
+              span class="badge bg-warning text-dark" Unverified
+              p class="text-muted small mb-0 mt-2" Verification email sent — please check your inbox.
 
           dt class="col-sm-3 text-muted" System roles
           dd class="col-sm-9 mb-0"
@@ -27,4 +37,8 @@ div class="row justify-content-center mt-4"
 
         div class="d-flex flex-wrap gap-2 mt-4"
           a href="/" class="btn btn-outline-secondary" Back to home
+          a href="/account/#{account['username']}/edit" class="btn btn-primary" Edit profile
+          - unless verified
+            form method="post" action="/account/#{account['username']}/resend_verification" class="d-inline"
+              button type="submit" class="btn btn-outline-primary" Resend verification
           a href="/auth/logout" class="btn btn-danger" Logout

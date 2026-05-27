@@ -64,14 +64,44 @@ module SecureBiddingApp
       routing.on String do |username|
         routing.get do
           require_login!(routing)
+          account = load_profile_account
+          return routing.redirect("/account/#{account['username']}") if account['username'] != username
 
-          # Only allow users to view their own account
-          if @current_account['username'] == username
-            view :account, locals: { current_account: @current_account }
-          else
-            response.status = 403
-            flash.now[:error] = 'You do not have permission to view this account'
-            view :login
+          view :account, locals: { account: account, current_account: @current_account }
+        rescue ApiClient::ApiError => e
+          response.status = e.status.to_i
+          flash.now[:error] = api_error_message(e, 'Unable to load your account')
+          view :account, locals: { account: @current_account, current_account: @current_account }
+        end
+
+        routing.on 'edit' do
+          routing.get do
+            require_login!(routing)
+            account = load_profile_account
+            return routing.redirect("/account/#{account['username']}") if account['username'] != username
+
+            view :account_edit, locals: { account: account, current_account: @current_account }
+          rescue ApiClient::ApiError => e
+            response.status = e.status.to_i
+            flash.now[:error] = api_error_message(e, 'Unable to load your account')
+            view :account_edit, locals: { account: @current_account, current_account: @current_account }
+          end
+
+          routing.patch do
+            require_login!(routing)
+            handle_account_update(routing, username)
+          end
+
+          routing.post do
+            require_login!(routing)
+            handle_account_update(routing, username)
+          end
+        end
+
+        routing.on 'resend_verification' do
+          routing.post do
+            require_login!(routing)
+            handle_resend_account_verification(routing, username)
           end
         end
       end
@@ -214,6 +244,117 @@ module SecureBiddingApp
 
       flash[:error] = 'Please log in to continue'
       routing.redirect '/auth/login'
+    end
+
+    def load_profile_account
+      account = FetchAccount.new(App.config).call(user_id: @current_account['id'], auth_token: get_auth_token)
+      account = @current_account.merge(account)
+      token = get_auth_token
+      return account if token.to_s.strip.empty?
+
+      account.merge('token' => token)
+    end
+
+    def account_email_verified?(account)
+      return false unless account.is_a?(Hash)
+
+      value = account['email_verified']
+      return true if value == true || value.to_s == 'true'
+      return false if value == false || value.to_s == 'false'
+
+      verified_at = account['email_verified_at']
+      return !verified_at.to_s.strip.empty? if verified_at
+
+      false
+    end
+
+    def redirect_to_profile(username)
+      "/account/#{username}"
+    end
+
+    def handle_account_update(routing, username)
+      account = @current_account
+      account = load_profile_account
+      return routing.redirect(redirect_to_profile(account['username'])) if account['username'] != username
+
+      validation = Forms::AccountEdit.new.call(
+        username: routing.params['username'].to_s.strip,
+        email: routing.params['email'].to_s.strip,
+        password: routing.params['password'].to_s,
+        password_confirm: routing.params['password_confirm'].to_s,
+        current_password: routing.params['current_password'].to_s
+      )
+
+      if validation.failure?
+        flash.now[:error] = validation.errors.to_h.map { |k, v| "#{k} #{v.join(', ')}" }.join('; ')
+        response.status = 400
+        return view :account_edit, locals: { account: account, current_account: @current_account }
+      end
+
+      validated = validation.to_h
+      current_password = validated.delete(:current_password)
+      password = validated[:password]
+
+      verify_current_password!(current_password) if password
+
+      UpdateAccount.new(App.config).call(
+        user_id: account['id'],
+        username: validated[:username],
+        email: validated[:email],
+        password: password,
+        auth_token: get_auth_token
+      )
+
+      merged_account = account.merge(
+        'username' => validated[:username],
+        'email' => validated[:email]
+      )
+      merged_account['email_verified'] = false if merged_account['email'] != account['email']
+      @current_session.store_current_account(merged_account)
+
+      flash[:notice] = if merged_account['email'] != account['email']
+                         'Verification email sent — please check your inbox.'
+                       else
+                         'Account updated successfully'
+                       end
+      routing.redirect redirect_to_profile(merged_account['username'])
+    rescue AuthenticateAccount::UnauthorizedError
+      flash.now[:error] = 'Current password is incorrect'
+      response.status = 403
+      view :account_edit, locals: { account: account, current_account: @current_account }
+    rescue ApiClient::ApiError => e
+      flash.now[:error] = api_error_message(e, 'Failed to update account')
+      response.status = e.status.to_i
+      view :account_edit, locals: { account: account, current_account: @current_account }
+    end
+
+    def handle_resend_account_verification(routing, username)
+      account = @current_account
+      account = load_profile_account
+      return routing.redirect(redirect_to_profile(account['username'])) if account['username'] != username
+
+      if account_email_verified?(account)
+        flash[:notice] = 'Your email is already verified'
+        return routing.redirect(redirect_to_profile(account['username']))
+      end
+
+      ResendAccountVerification.new(App.config).call(
+        user_id: account['id'],
+        auth_token: get_auth_token
+      )
+      flash[:notice] = 'Verification email sent — please check your inbox.'
+      routing.redirect redirect_to_profile(account['username'])
+    rescue ApiClient::ApiError => e
+      flash.now[:error] = api_error_message(e, 'Failed to resend verification email')
+      response.status = e.status.to_i
+      view :account, locals: { account: account, current_account: @current_account }
+    end
+
+    def verify_current_password!(current_password)
+      AuthenticateAccount.new(App.config).call(
+        username: @current_account['username'],
+        password: current_password
+      )
     end
 
     def system_roles_of(current_account)

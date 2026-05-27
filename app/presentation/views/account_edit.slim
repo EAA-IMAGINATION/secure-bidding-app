@@ -1,0 +1,40 @@
+- account ||= @current_account
+
+div class="row justify-content-center mt-4"
+  div class="col-md-8 col-lg-7"
+    a href="/account/#{account['username']}" class="btn btn-outline-secondary mb-3" Back to profile
+
+    div class="card shadow-sm"
+      div class="card-body p-4 p-md-5"
+        p class="text-uppercase text-primary fw-semibold mb-2" Account
+        h1 class="h3 mb-4" Edit profile
+
+        form method="post" action="/account/#{account['username']}/edit"
+          input type="hidden" name="_method" value="patch"
+
+          div class="mb-3"
+            label.form-label for="input-account-username" Username
+            input#input-account-username.form-control type="text" name="username" value=account['username'] required="required"
+
+          div class="mb-3"
+            label.form-label for="input-account-email" Email
+            input#input-account-email.form-control type="email" name="email" value=account['email'] required="required"
+
+          hr.my-4
+
+          p class="text-muted small mb-3" Leave the password fields blank if you only want to update your username or email.
+
+          div class="mb-3"
+            label.form-label for="input-account-password" New password
+            input#input-account-password.form-control type="password" name="password" minlength="8" placeholder="New password"
+
+          div class="mb-3"
+            label.form-label for="input-account-password-confirm" Confirm new password
+            input#input-account-password-confirm.form-control type="password" name="password_confirm" minlength="8" placeholder="Confirm new password"
+
+          div class="mb-4"
+            label.form-label for="input-account-current-password" Current password
+            input#input-account-current-password.form-control type="password" name="current_password" placeholder="Required when changing your password"
+            div class="form-text" Enter your current password only if you are changing your password.
+
+          button.btn.btn-primary.btn-lg.w-100 type="submit" Save changes

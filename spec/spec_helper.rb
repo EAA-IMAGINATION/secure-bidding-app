@@ -20,11 +20,14 @@ AuthenticateAccount = SecureBiddingApp::AuthenticateAccount
 CheckAccountAvailability = SecureBiddingApp::CheckAccountAvailability
 CreateProject = SecureBiddingApp::CreateProject
 CurrentSession = SecureBiddingApp::CurrentSession
+FetchAccount = SecureBiddingApp::FetchAccount
 FetchProjectDetail = SecureBiddingApp::FetchProjectDetail
 FetchProjects = SecureBiddingApp::FetchProjects
 InitiateRegistration = SecureBiddingApp::InitiateRegistration
 RegistrationToken = SecureBiddingApp::RegistrationToken
 ResetAccountPassword = SecureBiddingApp::ResetAccountPassword
+ResendAccountVerification = SecureBiddingApp::ResendAccountVerification
+UpdateAccount = SecureBiddingApp::UpdateAccount
 SubmitBid = SecureBiddingApp::SubmitBid
 VerifyRegistration = SecureBiddingApp::VerifyRegistration
 
