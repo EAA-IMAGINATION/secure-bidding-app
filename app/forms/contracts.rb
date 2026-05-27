@@ -66,5 +66,36 @@ module SecureBiddingApp
         required(:email).filled(:string, format?: /\A[\w+\-.]+@[a-z\d\-.]+\.[a-z]+\z/i)
       end
     end
+
+    # Account profile edit form validation schema
+    class AccountEdit < Dry::Validation::Contract
+      EMAIL_REGEX = /\A[\w+\-.]+@[a-z\d\-.]+\.[a-z]+\z/i
+
+      params do
+        required(:username).filled(:string)
+        required(:email).filled(:string, format?: EMAIL_REGEX)
+        optional(:password).maybe(:string)
+        optional(:password_confirm).maybe(:string)
+        optional(:current_password).maybe(:string)
+      end
+
+      rule(:password) do
+        next if value.nil? || value.to_s.empty?
+
+        key.failure('must be at least 8 characters') if value.to_s.length < 8
+      end
+
+      rule(:password_confirm, :password) do
+        next if values[:password].to_s.empty?
+
+        key.failure('must match password') if values[:password] != values[:password_confirm]
+      end
+
+      rule(:current_password, :password) do
+        next if values[:password].to_s.empty?
+
+        key.failure('is required when changing password') if values[:current_password].to_s.empty?
+      end
+    end
   end
 end

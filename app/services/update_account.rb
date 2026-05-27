@@ -11,25 +11,32 @@ module SecureBiddingApp
       @client = ApiClient.new(config.API_URL)
     end
 
-    def call(user_id:, email:, auth_token: nil)
-      validate(email)
-      
-      headers = {}
-      headers['Authorization'] = "Bearer #{auth_token}" if auth_token
-      
-      payload = { email: email }
-      client = auth_token ? ApiClient.new(@config.API_URL, default_headers: headers) : @client
-      client.patch("/accounts/#{user_id}", payload)
-    rescue ApiClient::ApiError => e
-      raise ValidationError, e.body['error'] if e.body.is_a?(Hash) && e.body['error']
+    def call(user_id:, username: nil, email: nil, password: nil, auth_token: nil)
+      payload = build_payload(username: username, email: email, password: password)
+      validate_payload!(payload)
 
-      raise ServiceError, "Failed to update account: #{e.message}"
+      client = client_with_auth(auth_token)
+      client.patch("/accounts/#{user_id}", payload)
     end
 
     private
 
-    def validate(email)
-      raise ValidationError, 'Email is required' if email.to_s.strip.empty?
+    def client_with_auth(auth_token)
+      return @client if auth_token.to_s.strip.empty?
+
+      ApiClient.new(@config.API_URL, default_headers: { 'Authorization' => "Bearer #{auth_token}" })
+    end
+
+    def build_payload(username:, email:, password:)
+      payload = {}
+      payload[:username] = username.to_s.strip unless username.to_s.strip.empty?
+      payload[:email] = email.to_s.strip unless email.to_s.strip.empty?
+      payload[:password] = password.to_s unless password.to_s.empty?
+      payload
+    end
+
+    def validate_payload!(payload)
+      raise ValidationError, 'At least one field is required' if payload.empty?
     end
   end
 end
