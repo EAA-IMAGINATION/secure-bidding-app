@@ -40,6 +40,9 @@ module SecureBiddingApp
         required(:title).filled(:string)
         required(:budget_cents).filled(:integer, gteq?: 0)
         required(:state).filled(:string, included_in?: %w[saved published])
+        required(:bidding_deadline).filled(:string)
+        required(:nacl_public_key).filled(:string)
+        required(:nacl_encrypted_private_key).filled(:string)
       end
     end
 
@@ -47,7 +50,8 @@ module SecureBiddingApp
     class BidSubmission < Dry::Validation::Contract
       params do
         required(:contractor_alias).filled(:string)
-        required(:plaintext_bid).filled(:string)
+        required(:encrypted_bid_amount).filled(:string)
+        required(:encrypted_proposal_text).filled(:string)
       end
     end
 
