@@ -12,7 +12,7 @@ nav.navbar.navbar-expand-lg.navbar-dark.bg-primary.shadow-sm role="navigation"
             a.nav-link href="/" Home
           li.nav-item
             a.nav-link href="/projects/my" Projects
-          - if system_roles_of(@current_account).include?('admin')
+          - if admin?(@current_account)
             li.nav-item
               a.nav-link href="/admin/users" Admin Users
           li.nav-item.dropdown

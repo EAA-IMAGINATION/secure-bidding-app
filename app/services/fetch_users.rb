@@ -10,8 +10,14 @@ module SecureBiddingApp
       @client = ApiClient.new(config.API_URL)
     end
 
-    def call
-      res = @client.get('/accounts')
+    # Accept an optional auth_token to include in the request headers
+    def call(auth_token: nil)
+      headers = {}
+      if auth_token && !auth_token.to_s.strip.empty?
+        headers['Authorization'] = "Bearer #{auth_token}"
+      end
+
+      res = @client.get('/accounts', headers: headers)
       Account.from_array(res['accounts'] || [])
     rescue ApiClient::ApiError => e
       raise ServiceError, "Failed to fetch users: #{e.message}"
