@@ -801,7 +801,7 @@ module SecureBiddingApp
         return routing.redirect '/'
       end
 
-      users = FetchUsers.new(App.config).call
+      users = FetchUsers.new(App.config).call(auth_token: get_auth_token)
       view :admin_users_list, locals: { users: users, current_account: @current_account }
     rescue FetchUsers::ServiceError => e
       flash.now[:error] = e.message
