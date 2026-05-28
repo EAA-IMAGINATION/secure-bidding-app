@@ -27,6 +27,9 @@ div class="row justify-content-center mt-4"
               - user['system_roles'].each do |role|
                 span class="badge bg-info me-1"
                   = role
+            - elsif user['system_role'] && !user['system_role'].to_s.strip.empty?
+              span class="badge bg-info me-1"
+                = user['system_role']
             - else
               span class="text-muted" No roles assigned
 
