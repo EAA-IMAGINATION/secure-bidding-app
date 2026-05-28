@@ -370,8 +370,8 @@ module SecureBiddingApp
 
       # Check system_role field (singular) - the main role assigned to the account
       current_account['system_role'] == 'admin' ||
-        # Also check system_roles array for backward compatibility
-        system_roles_of(current_account).include?('admin')
+        # Also check system_roles array for both 'admin' (legacy) and 'system_admin' (new)
+        system_roles_of(current_account).any? { |role| role == 'admin' || role == 'system_admin' }
     end
 
     # Check API-provided policy summaries to determine whether an action is allowed on a resource.
