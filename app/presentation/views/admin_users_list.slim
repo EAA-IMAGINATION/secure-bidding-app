@@ -17,31 +17,31 @@ div class="row justify-content-center mt-4"
               th Actions
           tbody
             - users.each do |user|
-            tr
-              td
-                = user['username']
-              td
-                - if user['email'] && !user['email'].to_s.strip.empty?
-                  = user['email']
-                  - if user['email_verified'] || user['email_verified'] == 'true'
-                    span.badge.bg-success.ms-2 Verified
+              tr
+                td
+                  = user['username']
+                td
+                  - if user['email'] && !user['email'].to_s.strip.empty?
+                    = user['email']
+                    - if user['email_verified'] || user['email_verified'] == 'true'
+                      span.badge.bg-success.ms-2 Verified
+                    - else
+                      span.badge.bg-secondary.ms-2 Unverified
                   - else
-                    span.badge.bg-secondary.ms-2 Unverified
-                - else
-                  | —
-              td
-                - if user['system_roles'] && user['system_roles'].size > 0
-                  - user['system_roles'].each do |role|
-                    span class="badge bg-info me-1"
-                      = role
-                - else
-                  span class="text-muted" No roles assigned
-              td
-                div class="d-flex gap-1"
-                  a href="/admin/users/#{user['id']}" class="btn btn-sm btn-info" View
-                  a href="/admin/users/#{user['id']}/edit" class="btn btn-sm btn-warning" Edit
-                  a href="/admin/users/#{user['id']}/roles" class="btn btn-sm btn-primary" Roles
-                  form method="post" action="/admin/users/#{user['id']}/delete" class="d-inline" data-confirm-username="#{user['username']}"
-                    button type="submit" class="btn btn-sm btn-danger" Delete
+                    | —
+                td
+                  - if user['system_roles'] && user['system_roles'].size > 0
+                    - user['system_roles'].each do |role|
+                      span class="badge bg-info me-1"
+                        = role
+                  - else
+                    span class="text-muted" No roles assigned
+                td
+                  div class="d-flex gap-1"
+                    a href="/admin/users/#{user['id']}" class="btn btn-sm btn-info" View
+                    a href="/admin/users/#{user['id']}/edit" class="btn btn-sm btn-warning" Edit
+                    a href="/admin/users/#{user['id']}/roles" class="btn btn-sm btn-primary" Roles
+                    form method="post" action="/admin/users/#{user['id']}/delete" class="d-inline" data-confirm-username="#{user['username']}"
+                      button type="submit" class="btn btn-sm btn-danger" Delete
     - else
       div class="alert alert-warning" No users found
