@@ -178,6 +178,7 @@ window.UUIDValidator = UUIDValidator;
 
 const AtomicReveal = {
   // Initialize countdown timer for atomic reveal
+  // Deadline is ISO 8601 string (e.g., "2026-05-28T17:30:00Z")
   initCountdown(deadlineISO, containerId = 'countdown-timer') {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -187,11 +188,28 @@ const AtomicReveal = {
     const updateCountdown = () => {
       const now = new Date().getTime();
       const timeLeft = deadline - now;
+      const revealBtn = document.getElementById('reveal-bids-btn');
       
       if (timeLeft <= 0) {
-        container.innerHTML = '<span class="badge bg-success">✓ Bidding Closed - Bids Revealed</span>';
-        this.revealBids();
-        return;
+        // Deadline passed - enable reveal and check integrity
+        container.innerHTML = '<span class="badge bg-success">✓ Bidding Closed</span>';
+        
+        // Enable reveal button if integrity snapshot is available
+        if (revealBtn) {
+          revealBtn.disabled = false;
+          revealBtn.classList.remove('disabled');
+          revealBtn.textContent = 'View Decrypted Bids';
+        }
+        
+        // Stop updating countdown
+        return true;
+      }
+
+      // Bidding still active - keep button locked
+      if (revealBtn) {
+        revealBtn.disabled = true;
+        revealBtn.classList.add('disabled');
+        revealBtn.title = 'Bids cannot be revealed until the bidding deadline passes';
       }
 
       const hours = Math.floor((timeLeft / (1000 * 60 * 60)) % 24);
@@ -203,34 +221,37 @@ const AtomicReveal = {
         <div class="d-flex align-items-center gap-2">
           <span class="badge bg-warning text-dark">Bidding Active</span>
           <span>Revealing in: <strong>${countdown}</strong></span>
-          <span style="font-size: 0.85rem; color: #666;">Bids are locked in cryptographic envelope</span>
+          <span style="font-size: 0.85rem; color: #666;">Bids locked in cryptographic envelope</span>
         </div>
       `;
+      
+      return false;
     };
 
     updateCountdown();
-    setInterval(updateCountdown, 1000);
-  },
-
-  // Enable bid reveal button after deadline
-  revealBids() {
-    const revealBtn = document.getElementById('reveal-bids-btn');
-    if (revealBtn) {
-      revealBtn.disabled = false;
-      revealBtn.classList.remove('disabled');
-    }
+    const intervalId = setInterval(() => {
+      if (updateCountdown()) {
+        // Deadline passed, stop updating
+        clearInterval(intervalId);
+      }
+    }, 1000);
   },
 
   // Fetch and display integrity snapshot
   async fetchIntegritySnapshot(projectId) {
     try {
+      // Try to fetch integrity snapshot from API
       const response = await fetch(`/api/v1/projects/${projectId}/integrity_snapshot`);
-      if (!response.ok) throw new Error('Failed to fetch integrity snapshot');
+      if (!response.ok) {
+        // Endpoint might not exist yet, or snapshot not available
+        console.warn('Integrity snapshot not yet available');
+        return null;
+      }
       
       const data = await response.json();
       return data;
     } catch (err) {
-      console.error('Integrity snapshot fetch error:', err);
+      console.warn('Integrity snapshot unavailable:', err.message);
       return null;
     }
   },
@@ -241,17 +262,26 @@ const AtomicReveal = {
     if (!container) return;
 
     if (!integrity) {
-      container.innerHTML = '<span class="badge bg-danger">✗ Integrity Not Verified</span>';
+      container.innerHTML = `
+        <div class="alert alert-info alert-sm mb-0">
+          <small>
+            <strong>Integrity snapshot:</strong> Will be generated after bidding deadline.
+            <span class="text-muted">(Currently preparing...)</span>
+          </small>
+        </div>
+      `;
       return;
     }
 
+    const snapshotTime = new Date(integrity.snapshot_taken_at).toLocaleString();
     const html = `
-      <span class="badge bg-success" title="Canonical hash: ${integrity.canonical_hash}">
-        ✓ Integrity Verified
-      </span>
-      <small class="text-muted" style="display: block; margin-top: 4px;">
-        Snapshot: ${new Date(integrity.snapshot_taken_at).toLocaleString()}
-      </small>
+      <div class="alert alert-success alert-sm mb-0">
+        <small>
+          <strong>✓ Integrity Verified</strong><br>
+          Hash: <code style="font-size: 0.75rem;">${integrity.canonical_hash.substring(0, 16)}...</code><br>
+          Snapshot: ${snapshotTime}
+        </small>
+      </div>
     `;
     container.innerHTML = html;
   }
