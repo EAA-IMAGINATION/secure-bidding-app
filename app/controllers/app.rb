@@ -490,7 +490,10 @@ module SecureBiddingApp
       validation = Forms::ProjectNew.new.call(
         title: routing.params['title'].to_s.strip,
         budget_cents: routing.params['budget_cents'].to_s.strip.empty? ? nil : routing.params['budget_cents'].to_s.strip.to_i,
-        state: routing.params['state'].to_s.strip
+        state: routing.params['state'].to_s.strip,
+        bidding_deadline: routing.params['bidding_deadline'].to_s.strip,
+        nacl_public_key: routing.params['nacl_public_key'].to_s.strip,
+        nacl_encrypted_private_key: routing.params['nacl_encrypted_private_key'].to_s.strip
       )
 
       if validation.failure?
@@ -505,6 +508,9 @@ module SecureBiddingApp
         title: validated[:title],
         budget_cents: validated[:budget_cents].to_s,
         state: validated[:state],
+        bidding_deadline: validated[:bidding_deadline],
+        nacl_public_key: validated[:nacl_public_key],
+        nacl_encrypted_private_key: validated[:nacl_encrypted_private_key],
         auth_token: get_auth_token
       )
 
@@ -537,7 +543,8 @@ module SecureBiddingApp
       # Validate
       validation = Forms::BidSubmission.new.call(
         contractor_alias: routing.params['contractor_alias'].to_s.strip,
-        plaintext_bid: routing.params['plaintext_bid'].to_s.strip
+        encrypted_bid_amount: routing.params['encrypted_bid_amount'].to_s.strip,
+        encrypted_proposal_text: routing.params['encrypted_proposal_text'].to_s.strip
       )
 
       if validation.failure?
@@ -554,7 +561,8 @@ module SecureBiddingApp
         project_id: project_id,
         bidder_account_id: @current_account['id'],
         contractor_alias: validated[:contractor_alias],
-        plaintext_bid: validated[:plaintext_bid],
+        encrypted_bid_amount: validated[:encrypted_bid_amount],
+        encrypted_proposal_text: validated[:encrypted_proposal_text],
         auth_token: @current_account['token']
       )
 
