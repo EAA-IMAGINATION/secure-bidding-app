@@ -15,6 +15,13 @@ div class="row justify-content-center mt-4"
           | 
           = number_to_currency(project['budget_cents'] / 100.0)
 
+        / Bidding deadline display
+        - if project && project['bidding_deadline']
+          p class="mb-2"
+            strong Bidding Deadline:
+            |
+            = Time.parse(project['bidding_deadline']).strftime('%Y-%m-%d %H:%M UTC') rescue project['bidding_deadline']
+
         - if project && (project['policy'].nil? ? (current_account && admin?(current_account)) : (allowed?(project, 'edit') || allowed?(project, 'delete')))
           div class="d-flex gap-2 mt-4"
             - if project && (project['policy'].nil? ? (current_account && admin?(current_account)) : allowed?(project, 'edit'))
@@ -34,6 +41,37 @@ div class="row justify-content-center mt-4"
                   input type="text" name="account_id" placeholder="Account ID" class="form-control" required=true
                 div class="col-auto"
                   button type="submit" class="btn btn-primary" Add Co-owner
+
+    / Milestone & Escrow Status Section (SEC-FT-06)
+    - if project && project['state'] == 'published'
+      div class="card mb-4 border-info"
+        div class="card-body"
+          h5 class="card-title mb-3" Project Milestones & Escrow
+
+          div class="row"
+            div class="col-md-6"
+              div class="card border-light"
+                div class="card-body"
+                  h6 class="card-subtitle mb-2 text-muted" Milestone Status
+                  
+                  / Placeholder: Will show milestones when backend API is extended
+                  div class="alert alert-info alert-sm mb-0"
+                    small
+                      | <strong>Milestones:</strong> Not yet available
+                      br
+                      | Milestone tracking will be enabled after bidding closes.
+
+            div class="col-md-6"
+              div class="card border-light"
+                div class="card-body"
+                  h6 class="card-subtitle mb-2 text-muted" Escrow & Payments
+                  
+                  / Placeholder: Will show payment states when backend API is extended
+                  div class="alert alert-info alert-sm mb-0"
+                    small
+                      | <strong>Payment Status:</strong> Awaiting milestone completion
+                      br
+                      | Payments locked until contractor deliverables verified.
 
     - if project && project['state'] == 'published' && (project['policy'].nil? ? current_account : (current_account && (allowed?(project, 'create_bid') || allowed?(project, 'submit_bid'))))
       div class="card"
@@ -120,7 +158,7 @@ div class="row justify-content-center mt-4"
             - else
               div class="alert alert-danger" Error: Project does not have encryption keys configured.
 
-      - # Atomic Reveal: Countdown & Bid Gating
+      - # SEC-FT-05: Atomic Reveal with strict deadline gating
       - if project && project['bidding_deadline'] && project['state'] == 'published'
         div class="card mt-4 border-warning"
           div class="card-body"
@@ -139,26 +177,42 @@ div class="row justify-content-center mt-4"
               div id="integrity-badge" class="mt-3"
                 | (Checking integrity...)
 
-              button type="button" class="btn btn-primary mt-3" id="reveal-bids-btn" disabled=true onclick="location.reload();" View Decrypted Bids
+              button type="button" class="btn btn-primary mt-3" id="reveal-bids-btn" disabled=true Bid Reveal (Locked Until Deadline)
 
               script
                 | document.addEventListener('DOMContentLoaded', function() {
                 |   const deadlineISO = "#{project['bidding_deadline']}";
+                |   
+                |   // Initialize countdown and deadline gating
                 |   AtomicReveal.initCountdown(deadlineISO, 'countdown-timer');
                 |   
-                |   // Fetch integrity snapshot
+                |   // Fetch integrity snapshot after deadline (will be ready after deadline passes)
                 |   setTimeout(async function() {
                 |     const projectId = "#{project['id']}";
                 |     const integrity = await AtomicReveal.fetchIntegritySnapshot(projectId);
                 |     AtomicReveal.displayIntegrityBadge(integrity, 'integrity-badge');
                 |   }, 500);
+                |   
+                |   // Reveal button behavior: only allow reload after deadline AND integrity check
+                |   const revealBtn = document.getElementById('reveal-bids-btn');
+                |   if (revealBtn) {
+                |     revealBtn.addEventListener('click', function(e) {
+                |       if (revealBtn.disabled) {
+                |         e.preventDefault();
+                |         alert('Bid reveal is locked until the bidding deadline passes.');
+                |         return false;
+                |       }
+                |       // After deadline, reload page to show decrypted bids
+                |       location.reload();
+                |     });
+                |   }
                 | });
 
       - # Bids area: render full bids if API returned them, otherwise show count when present
       - if project && project['bids'] && project['bids'].any?
         div class="card mt-4"
           div class="card-body"
-            h5 class="card-title" Submitted Bids
+            h5 class="card-title" Submitted Bids (Decrypted)
 
             div id="integrity-badge-bids" class="mb-3"
               | (Verifying integrity...)
