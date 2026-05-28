@@ -10,8 +10,8 @@ module SecureBiddingApp
       @config = config
     end
 
-    def call(title:, budget_cents:, state: 'saved', auth_token: nil)
-      validate_params(title, budget_cents, state)
+    def call(title:, budget_cents:, state: 'saved', bidding_deadline: nil, nacl_public_key: nil, nacl_encrypted_private_key: nil, auth_token: nil)
+      validate_params(title, budget_cents, state, bidding_deadline)
 
       headers = {}
       headers['Authorization'] = "Bearer #{auth_token}" if auth_token
@@ -20,7 +20,10 @@ module SecureBiddingApp
       body = {
         title: title,
         budget_cents: budget_cents,
-        state: state
+        state: state,
+        bidding_deadline: bidding_deadline,
+        nacl_public_key: nacl_public_key,
+        nacl_encrypted_private_key: nacl_encrypted_private_key
       }
 
       client.post('/projects', body)
@@ -32,7 +35,7 @@ module SecureBiddingApp
 
     private
 
-    def validate_params(title, budget_cents, state)
+    def validate_params(title, budget_cents, state, bidding_deadline)
       raise ValidationError, 'Title cannot be empty' if title.to_s.strip.empty?
       unless budget_cents.to_s.match?(/\A\d+\z/)
         raise ValidationError,

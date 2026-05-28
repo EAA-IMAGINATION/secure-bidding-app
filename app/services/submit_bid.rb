@@ -11,18 +11,23 @@ module SecureBiddingApp
       @config = config
     end
 
-    def call(project_id:, bidder_account_id:, contractor_alias:, plaintext_bid:, auth_token:)
-      validate_params(bidder_account_id, contractor_alias, plaintext_bid)
+    def call(project_id:, bidder_account_id:, contractor_alias:, encrypted_bid_amount:, encrypted_proposal_text:, auth_token:)
+      validate_params(bidder_account_id, contractor_alias, encrypted_bid_amount, encrypted_proposal_text)
 
       client = ApiClient.new(
         @config.API_URL,
         default_headers: { 'Authorization' => "Bearer #{auth_token}" }
       )
 
+      # Parse encrypted JSON strings
+      encrypted_bid = JSON.parse(encrypted_bid_amount)
+      encrypted_proposal = JSON.parse(encrypted_proposal_text)
+
       body = {
         bidder_account_id: bidder_account_id,
         contractor_alias: contractor_alias,
-        plaintext_bid: plaintext_bid
+        encrypted_bid_amount: encrypted_bid,
+        encrypted_proposal_text: encrypted_proposal
       }
 
       client.post("/projects/#{project_id}/bids", body)
@@ -40,10 +45,12 @@ module SecureBiddingApp
 
     private
 
-    def validate_params(bidder_account_id, contractor_alias, plaintext_bid)
+    def validate_params(bidder_account_id, contractor_alias, encrypted_bid_amount, encrypted_proposal_text)
       raise ValidationError, 'Bidder account ID is required' if bidder_account_id.to_s.strip.empty?
+      raise ValidationError, 'Bidder account ID must be a valid UUID' unless bidder_account_id.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i)
       raise ValidationError, 'Contractor alias is required' if contractor_alias.to_s.strip.empty?
-      raise ValidationError, 'Bid amount is required' if plaintext_bid.to_s.strip.empty?
+      raise ValidationError, 'Encrypted bid amount is required' if encrypted_bid_amount.to_s.strip.empty?
+      raise ValidationError, 'Encrypted proposal text is required' if encrypted_proposal_text.to_s.strip.empty?
     end
   end
 end

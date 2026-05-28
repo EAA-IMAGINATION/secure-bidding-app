@@ -239,6 +239,10 @@ module SecureBiddingApp
 
     private
 
+    def valid_uuid?(id)
+      id.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i)
+    end
+
     def require_login!(routing)
       return if @current_account
 
@@ -490,7 +494,11 @@ module SecureBiddingApp
       validation = Forms::ProjectNew.new.call(
         title: routing.params['title'].to_s.strip,
         budget_cents: routing.params['budget_cents'].to_s.strip.empty? ? nil : routing.params['budget_cents'].to_s.strip.to_i,
-        state: routing.params['state'].to_s.strip
+        state: routing.params['state'].to_s.strip,
+        bidding_deadline: routing.params['bidding_deadline'].to_s.strip,
+        nacl_public_key: routing.params['nacl_public_key'].to_s.strip,
+        nacl_encrypted_private_key: routing.params['nacl_encrypted_private_key'].to_s.strip,
+        project_passphrase: routing.params['project_passphrase'].to_s.strip  # Client-side only, not sent to API
       )
 
       if validation.failure?
@@ -505,6 +513,9 @@ module SecureBiddingApp
         title: validated[:title],
         budget_cents: validated[:budget_cents].to_s,
         state: validated[:state],
+        bidding_deadline: validated[:bidding_deadline],
+        nacl_public_key: validated[:nacl_public_key],
+        nacl_encrypted_private_key: validated[:nacl_encrypted_private_key],
         auth_token: get_auth_token
       )
 
@@ -523,6 +534,16 @@ module SecureBiddingApp
     def handle_bid_submission(routing, project_id)
       require_login!(routing)
 
+      unless valid_uuid?(project_id)
+        flash.now[:error] = 'Invalid project ID format'
+        response.status = 404
+        return view :project_detail, locals: {
+          project: nil,
+          current_account: @current_account,
+          is_owner: false
+        }
+      end
+
       unless @current_account['token']
         flash.now[:error] =
           'You must be verified to submit bids. Please complete the registration verification.'
@@ -537,7 +558,8 @@ module SecureBiddingApp
       # Validate
       validation = Forms::BidSubmission.new.call(
         contractor_alias: routing.params['contractor_alias'].to_s.strip,
-        plaintext_bid: routing.params['plaintext_bid'].to_s.strip
+        encrypted_bid_amount: routing.params['encrypted_bid_amount'].to_s.strip,
+        encrypted_proposal_text: routing.params['encrypted_proposal_text'].to_s.strip
       )
 
       if validation.failure?
@@ -554,7 +576,8 @@ module SecureBiddingApp
         project_id: project_id,
         bidder_account_id: @current_account['id'],
         contractor_alias: validated[:contractor_alias],
-        plaintext_bid: validated[:plaintext_bid],
+        encrypted_bid_amount: validated[:encrypted_bid_amount],
+        encrypted_proposal_text: validated[:encrypted_proposal_text],
         auth_token: @current_account['token']
       )
 

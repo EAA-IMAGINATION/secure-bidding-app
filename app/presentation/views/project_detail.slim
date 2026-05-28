@@ -15,6 +15,13 @@ div class="row justify-content-center mt-4"
           | 
           = number_to_currency(project['budget_cents'] / 100.0)
 
+        / Bidding deadline display
+        - if project && project['bidding_deadline']
+          p class="mb-2"
+            strong Bidding Deadline:
+            |
+            = Time.parse(project['bidding_deadline']).strftime('%Y-%m-%d %H:%M UTC') rescue project['bidding_deadline']
+
         - if project && (project['policy'].nil? ? (current_account && admin?(current_account)) : (allowed?(project, 'edit') || allowed?(project, 'delete')))
           div class="d-flex gap-2 mt-4"
             - if project && (project['policy'].nil? ? (current_account && admin?(current_account)) : allowed?(project, 'edit'))
@@ -35,6 +42,37 @@ div class="row justify-content-center mt-4"
                 div class="col-auto"
                   button type="submit" class="btn btn-primary" Add Co-owner
 
+    / Milestone & Escrow Status Section (SEC-FT-06)
+    - if project && project['state'] == 'published'
+      div class="card mb-4 border-info"
+        div class="card-body"
+          h5 class="card-title mb-3" Project Milestones & Escrow
+
+          div class="row"
+            div class="col-md-6"
+              div class="card border-light"
+                div class="card-body"
+                  h6 class="card-subtitle mb-2 text-muted" Milestone Status
+                  
+                  / Placeholder: Will show milestones when backend API is extended
+                  div class="alert alert-info alert-sm mb-0"
+                    small
+                      | <strong>Milestones:</strong> Not yet available
+                      br
+                      | Milestone tracking will be enabled after bidding closes.
+
+            div class="col-md-6"
+              div class="card border-light"
+                div class="card-body"
+                  h6 class="card-subtitle mb-2 text-muted" Escrow & Payments
+                  
+                  / Placeholder: Will show payment states when backend API is extended
+                  div class="alert alert-info alert-sm mb-0"
+                    small
+                      | <strong>Payment Status:</strong> Awaiting milestone completion
+                      br
+                      | Payments locked until contractor deliverables verified.
+
     - if project && project['state'] == 'published' && (project['policy'].nil? ? current_account : (current_account && (allowed?(project, 'create_bid') || allowed?(project, 'submit_bid'))))
       div class="card"
         div class="card-body"
@@ -43,37 +81,163 @@ div class="row justify-content-center mt-4"
           - if is_owner || (project && project['policy'] && project['policy']['is_owner'])
             div class="alert alert-warning" You are the project owner and cannot bid on your own project.
           - else
-            form method="post" action="/projects/#{project['id']}/bids"
-              div class="mb-3"
-                label for="contractor_alias" class="form-label" Contractor Alias
-                input type="text" class="form-control" id="contractor_alias" name="contractor_alias" required=true
+            - if project && project['nacl_public_key']
+              form method="post" action="/projects/#{project['id']}/bids" id="bid-form"
+                div class="mb-3"
+                  label for="contractor_alias" class="form-label" Contractor Alias
+                  input type="text" class="form-control" id="contractor_alias" name="contractor_alias" required=true
 
-              div class="mb-3"
-                label for="plaintext_bid" class="form-label" Bid Amount or Proposal
-                textarea class="form-control" id="plaintext_bid" name="plaintext_bid" rows="4" required=true placeholder="Enter your bid amount and proposal"
+                div class="mb-3"
+                  label for="bid_amount" class="form-label" Bid Amount
+                  input type="number" class="form-control" id="bid_amount" name="bid_amount" required=true min="0" placeholder="Enter your bid amount (will be encrypted)"
 
-              button type="submit" class="btn btn-primary" Submit Bid
+                div class="mb-3"
+                  label for="proposal_text" class="form-label" Proposal
+                  textarea class="form-control" id="proposal_text" name="proposal_text" rows="4" placeholder="Enter your proposal details (will be encrypted)"
+
+                / Hidden fields for encrypted data
+                input type="hidden" id="encrypted_bid_amount" name="encrypted_bid_amount" value=""
+                input type="hidden" id="encrypted_proposal_text" name="encrypted_proposal_text" value=""
+
+                div class="mb-3" id="bid-crypto-status" style="display: none;"
+                  div class="alert alert-info" role="alert"
+                    span id="bid-crypto-message" Encrypting your bid...
+
+                button type="submit" class="btn btn-primary" id="bid-submit-btn" disabled=true Submit Bid
+
+              script
+                | const projectPublicKey = "#{project['nacl_public_key']}";
+                | const projectId = "#{project['id']}";
+                | document.getElementById('bid-form').addEventListener('submit', async function(e) {
+                |   e.preventDefault();
+                |   
+                |   // Validate project ID is UUID format
+                |   if (!UUIDValidator.isValid(projectId)) {
+                |     alert('Invalid project ID format');
+                |     return false;
+                |   }
+                |   
+                |   const statusDiv = document.getElementById('bid-crypto-status');
+                |   const statusMessage = document.getElementById('bid-crypto-message');
+                |   const submitBtn = document.getElementById('bid-submit-btn');
+                |   const form = this;
+                |   
+                |   try {
+                |     statusDiv.style.display = 'block';
+                |     statusMessage.textContent = 'Encrypting your bid...';
+                |     
+                |     const bidAmount = document.getElementById('bid_amount').value.toString();
+                |     const proposalText = document.getElementById('proposal_text').value;
+                |     
+                |     // Encrypt bid amount
+                |     const encryptedAmount = CryptoUtils.encryptForProject(projectPublicKey, bidAmount);
+                |     document.getElementById('encrypted_bid_amount').value = JSON.stringify(encryptedAmount);
+                |     
+                |     // Encrypt proposal text
+                |     const encryptedProposal = CryptoUtils.encryptForProject(projectPublicKey, proposalText);
+                |     document.getElementById('encrypted_proposal_text').value = JSON.stringify(encryptedProposal);
+                |     
+                |     statusMessage.textContent = '✓ Bid encrypted successfully. Submitting...';
+                |     statusDiv.classList.remove('alert-info');
+                |     statusDiv.classList.add('alert-success');
+                |     
+                |     // Submit the form
+                |     form.submit();
+                |   } catch (err) {
+                |     console.error('Bid encryption error:', err);
+                |     statusMessage.textContent = 'Error: ' + err.message;
+                |     statusDiv.classList.remove('alert-info');
+                |     statusDiv.classList.add('alert-danger');
+                |   }
+                | });
+                | 
+                | // Enable submit button once DOM is ready
+                | document.addEventListener('DOMContentLoaded', function() {
+                |   document.getElementById('bid-submit-btn').disabled = false;
+                | });
+            - else
+              div class="alert alert-danger" Error: Project does not have encryption keys configured.
+
+      - # SEC-FT-05: Atomic Reveal with strict deadline gating
+      - if project && project['bidding_deadline'] && project['state'] == 'published'
+        div class="card mt-4 border-warning"
+          div class="card-body"
+            h5 class="card-title mb-3" Atomic Reveal Status
+
+            - if project['nacl_public_key']
+              div id="countdown-timer" class="mb-3"
+                | (Initializing countdown...)
+
+              - if project['bid_count'] || project['bids_count'] || project['bid_submissions_count']
+                div class="alert alert-info"
+                  | Total bids received:
+                  strong
+                    = (project['bid_count'] || project['bids_count'] || project['bid_submissions_count']).to_i
+
+              div id="integrity-badge" class="mt-3"
+                | (Checking integrity...)
+
+              button type="button" class="btn btn-primary mt-3" id="reveal-bids-btn" disabled=true Bid Reveal (Locked Until Deadline)
+
+              script
+                | document.addEventListener('DOMContentLoaded', function() {
+                |   const deadlineISO = "#{project['bidding_deadline']}";
+                |   
+                |   // Initialize countdown and deadline gating
+                |   AtomicReveal.initCountdown(deadlineISO, 'countdown-timer');
+                |   
+                |   // Fetch integrity snapshot after deadline (will be ready after deadline passes)
+                |   setTimeout(async function() {
+                |     const projectId = "#{project['id']}";
+                |     const integrity = await AtomicReveal.fetchIntegritySnapshot(projectId);
+                |     AtomicReveal.displayIntegrityBadge(integrity, 'integrity-badge');
+                |   }, 500);
+                |   
+                |   // Reveal button behavior: only allow reload after deadline AND integrity check
+                |   const revealBtn = document.getElementById('reveal-bids-btn');
+                |   if (revealBtn) {
+                |     revealBtn.addEventListener('click', function(e) {
+                |       if (revealBtn.disabled) {
+                |         e.preventDefault();
+                |         alert('Bid reveal is locked until the bidding deadline passes.');
+                |         return false;
+                |       }
+                |       // After deadline, reload page to show decrypted bids
+                |       location.reload();
+                |     });
+                |   }
+                | });
 
       - # Bids area: render full bids if API returned them, otherwise show count when present
       - if project && project['bids'] && project['bids'].any?
         div class="card mt-4"
           div class="card-body"
-            h5 class="card-title" Submitted Bids
+            h5 class="card-title" Submitted Bids (Decrypted)
+
+            div id="integrity-badge-bids" class="mb-3"
+              | (Verifying integrity...)
+
             table class="table"
               thead
                 tr
                   th Contractor
-                  th Bid
+                  th Encrypted Bid (Base64)
               tbody
                 - project['bids'].each do |bid|
                   tr
                     td = bid['contractor_alias'] || '—'
-                    td = bid['plaintext_bid'] || '—'
-      - else
-        - count = project && (project['bids_count'] || project['bid_submissions_count'] || project['bid_count'])
-        - if count
-          div class="alert alert-info mt-3"
-            | Bids are hidden until the deadline — #{count} submitted
+                    td
+                      small = bid['encrypted_bid_amount'] ? bid['encrypted_bid_amount'][0...50] + '...' : '—'
+
+            script
+              | document.addEventListener('DOMContentLoaded', function() {
+              |   // Display integrity verification for revealed bids
+              |   setTimeout(async function() {
+              |     const projectId = "#{project['id']}";
+              |     const integrity = await AtomicReveal.fetchIntegritySnapshot(projectId);
+              |     AtomicReveal.displayIntegrityBadge(integrity, 'integrity-badge-bids');
+              |   }, 500);
+              | });
 
     - elsif !current_account
       div class="card mt-4"

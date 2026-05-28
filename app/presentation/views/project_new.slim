@@ -6,7 +6,7 @@ div class="row justify-content-center mt-4"
       div class="card-body"
         h2 class="card-title mb-4" Create New Project
 
-        form method="post" action="/projects"
+        form method="post" action="/projects" id="project-form"
           div class="mb-3"
             label for="title" class="form-label" Project Title
             input type="text" class="form-control" id="title" name="title" required=true placeholder="Enter project title"
@@ -17,9 +17,108 @@ div class="row justify-content-center mt-4"
             small class="form-text text-muted" Note: Enter amount in cents (1 dollar = 100 cents)
 
           div class="mb-3"
+            label for="bidding_deadline" class="form-label" Bidding Deadline
+            input type="datetime-local" class="form-control" id="bidding_deadline" name="bidding_deadline" required=true
+            small class="form-text text-muted" Bids will be locked after this time (in your local timezone)
+
+          div class="mb-3"
             label for="state" class="form-label" Project State
             select class="form-select" id="state" name="state"
               option value="saved" Save as Draft
               option value="published" Publish Immediately
 
-          button type="submit" class="btn btn-primary w-100" Create Project
+          div class="mb-3"
+            label for="project_passphrase" class="form-label" Project Passphrase
+            input type="password" class="form-control" id="project_passphrase" name="project_passphrase" required=true minlength="8" placeholder="Strong passphrase to secure project encryption keys"
+            small class="form-text text-muted" Use a strong passphrase (8+ characters). This is needed to decrypt private keys.
+
+          / Hidden fields for NaCl encryption keys (populated by JS)
+          input type="hidden" id="nacl_public_key" name="nacl_public_key" value=""
+          input type="hidden" id="nacl_encrypted_private_key" name="nacl_encrypted_private_key" value=""
+
+          div class="mb-3" id="crypto-status" style="display: none;"
+            div class="alert alert-info" role="alert"
+              span id="crypto-message" Generating cryptographic keys...
+
+          button type="submit" class="btn btn-primary w-100" id="submit-btn" disabled=true Create Project
+
+        script
+          | // Generate NaCl keypair on form load
+          | document.addEventListener('DOMContentLoaded', async function() {
+          |   const form = document.getElementById('project-form');
+          |   const statusDiv = document.getElementById('crypto-status');
+          |   const statusMessage = document.getElementById('crypto-message');
+          |   const submitBtn = document.getElementById('submit-btn');
+          |   const passphraseField = document.getElementById('project_passphrase');
+          |   
+          |   // Enable form submission after user enters passphrase
+          |   passphraseField.addEventListener('input', async function() {
+          |     const passphrase = this.value.trim();
+          |     if (passphrase.length < 8) {
+          |       submitBtn.disabled = true;
+          |       return;
+          |     }
+          |     
+          |     try {
+          |       // Generate keypair if not already done
+          |       if (!document.getElementById('nacl_public_key').value) {
+          |         const keyPair = CryptoUtils.generateKeyPair();
+          |         document.getElementById('nacl_public_key').value = keyPair.publicKey;
+          |         
+          |         // Encrypt private key with user passphrase
+          |         const encrypted = await CryptoUtils.encryptPrivateKeyWithPassword(
+          |           keyPair.secretKey,
+          |           passphrase
+          |         );
+          |         
+          |         // Store encrypted key (nonce + salt + ciphertext as JSON)
+          |         const keyData = JSON.stringify({
+          |           ciphertext: encrypted.ciphertext,
+          |           nonce: encrypted.nonce,
+          |           salt: encrypted.salt
+          |         });
+          |         document.getElementById('nacl_encrypted_private_key').value = keyData;
+          |         
+          |         statusMessage.textContent = '✓ Cryptographic keys generated and secured with passphrase';
+          |         statusDiv.classList.remove('alert-info');
+          |         statusDiv.classList.add('alert-success');
+          |       } else {
+          |         // Re-encrypt with updated passphrase
+          |         const keyPair = CryptoUtils.generateKeyPair();
+          |         document.getElementById('nacl_public_key').value = keyPair.publicKey;
+          |         
+          |         const encrypted = await CryptoUtils.encryptPrivateKeyWithPassword(
+          |           keyPair.secretKey,
+          |           passphrase
+          |         );
+          |         
+          |         const keyData = JSON.stringify({
+          |           ciphertext: encrypted.ciphertext,
+          |           nonce: encrypted.nonce,
+          |           salt: encrypted.salt
+          |         });
+          |         document.getElementById('nacl_encrypted_private_key').value = keyData;
+          |       }
+          |       
+          |       submitBtn.disabled = false;
+          |     } catch (err) {
+          |       console.error('Crypto error:', err);
+          |       statusMessage.textContent = 'Error: ' + err.message;
+          |       statusDiv.classList.remove('alert-info');
+          |       statusDiv.classList.add('alert-danger');
+          |       submitBtn.disabled = true;
+          |     }
+          |     
+          |     statusDiv.style.display = 'block';
+          |   });
+          |   
+          |   // Validate deadline is in future (server-side validation will also catch this)
+          |   form.addEventListener('submit', function(e) {
+          |     const deadline = new Date(document.getElementById('bidding_deadline').value);
+          |     if (deadline <= new Date()) {
+          |       e.preventDefault();
+          |       alert('Bidding deadline must be in the future');
+          |     }
+          |   });
+          | });
+
