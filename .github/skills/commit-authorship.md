@@ -17,3 +17,17 @@
 ## Notes
 
 - Ask whether to push to remote after the commit is created.
+
+## Recommended setup
+
+To ensure no AI co-author trailers slip into commit history, set up the
+repository hooks locally **at the start of every session**:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The repository includes `.githooks/prepare-commit-msg` which will automatically
+strip AI co-author trailers referencing Copilot from commit messages.
+
+**This is mandatory**—without this setup, trailers will persist and break CI/CD.
