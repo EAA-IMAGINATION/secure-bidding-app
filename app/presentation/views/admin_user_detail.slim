@@ -9,16 +9,17 @@ div class="row justify-content-center mt-4"
             = user['username']
           
           p class="mb-2"
-            strong ID:
-            span
-              | 
-              = user['id']
-          
-          p class="mb-2"
             strong Email:
             span
               | 
-              = user['email']
+              - if user['email'] && !user['email'].to_s.strip.empty?
+                = user['email']
+                - if user['email_verified'] || user['email_verified'] == 'true'
+                  span.badge.bg-success.ms-2 Verified
+                - else
+                  span.badge.bg-secondary.ms-2 Unverified
+              - else
+                | —
           
           p class="mb-4"
             strong Roles:
