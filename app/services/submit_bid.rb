@@ -47,6 +47,7 @@ module SecureBiddingApp
 
     def validate_params(bidder_account_id, contractor_alias, encrypted_bid_amount, encrypted_proposal_text)
       raise ValidationError, 'Bidder account ID is required' if bidder_account_id.to_s.strip.empty?
+      raise ValidationError, 'Bidder account ID must be a valid UUID' unless bidder_account_id.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i)
       raise ValidationError, 'Contractor alias is required' if contractor_alias.to_s.strip.empty?
       raise ValidationError, 'Encrypted bid amount is required' if encrypted_bid_amount.to_s.strip.empty?
       raise ValidationError, 'Encrypted proposal text is required' if encrypted_proposal_text.to_s.strip.empty?

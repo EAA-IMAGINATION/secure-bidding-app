@@ -69,8 +69,15 @@ div class="row justify-content-center mt-4"
 
               script
                 | const projectPublicKey = "#{project['nacl_public_key']}";
+                | const projectId = "#{project['id']}";
                 | document.getElementById('bid-form').addEventListener('submit', async function(e) {
                 |   e.preventDefault();
+                |   
+                |   // Validate project ID is UUID format
+                |   if (!UUIDValidator.isValid(projectId)) {
+                |     alert('Invalid project ID format');
+                |     return false;
+                |   }
                 |   
                 |   const statusDiv = document.getElementById('bid-crypto-status');
                 |   const statusMessage = document.getElementById('bid-crypto-message');

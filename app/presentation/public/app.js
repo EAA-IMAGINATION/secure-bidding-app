@@ -137,6 +137,43 @@ const CryptoUtils = {
 // Make CryptoUtils globally available
 window.CryptoUtils = CryptoUtils;
 
+// === UUID Validation Helpers ===
+
+const UUIDValidator = {
+  pattern: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+
+  isValid(id) {
+    return this.pattern.test(id.toString());
+  },
+
+  validateField(fieldId, fieldName) {
+    const field = document.getElementById(fieldId);
+    if (!field) return true; // Field not present on this page
+
+    const value = field.value.trim();
+    if (!value) return true; // Empty fields validated by Dry::Validation
+
+    if (!this.isValid(value)) {
+      alert(`${fieldName} must be a valid UUID (format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)`);
+      field.focus();
+      return false;
+    }
+    return true;
+  },
+
+  validateFormSubmission(form, idFields) {
+    for (const { fieldId, fieldName } of idFields) {
+      if (!this.validateField(fieldId, fieldName)) {
+        return false;
+      }
+    }
+    return true;
+  }
+};
+
+// Make UUIDValidator globally available
+window.UUIDValidator = UUIDValidator;
+
 // === Countdown Timer & Atomic Reveal ===
 
 const AtomicReveal = {
