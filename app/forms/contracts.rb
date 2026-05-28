@@ -46,7 +46,7 @@ module SecureBiddingApp
         required(:bidding_deadline).filled(:string)
         required(:nacl_public_key).filled(:string)
         required(:nacl_encrypted_private_key).filled(:string)
-        optional(:project_passphrase).maybe(:string)  # Client-side only, not sent to API
+        required(:project_passphrase).filled(:string, min_size?: 8)  # SEC-FT-01: Required with min 8 chars
       end
 
       rule(:bidding_deadline) do
@@ -87,9 +87,44 @@ module SecureBiddingApp
     # Bid submission form validation schema
     class BidSubmission < Dry::Validation::Contract
       params do
+        required(:project_id).filled(:string)
         required(:contractor_alias).filled(:string)
         required(:encrypted_bid_amount).filled(:string)
         required(:encrypted_proposal_text).filled(:string)
+      end
+
+      rule(:project_id) do
+        next if value.to_s.empty?
+
+        unless value.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i)
+          key.failure('must be a valid UUID')
+        end
+      end
+
+      rule(:encrypted_bid_amount) do
+        next if value.to_s.empty?
+
+        begin
+          parsed = JSON.parse(value)
+          unless parsed.is_a?(Hash) && parsed['ciphertext'] && parsed['nonce']
+            key.failure('must be valid JSON with ciphertext and nonce')
+          end
+        rescue JSON::ParserError
+          key.failure('must be valid JSON')
+        end
+      end
+
+      rule(:encrypted_proposal_text) do
+        next if value.to_s.empty?
+
+        begin
+          parsed = JSON.parse(value)
+          unless parsed.is_a?(Hash) && parsed['ciphertext'] && parsed['nonce']
+            key.failure('must be valid JSON with ciphertext and nonce')
+          end
+        rescue JSON::ParserError
+          key.failure('must be valid JSON')
+        end
       end
     end
 
