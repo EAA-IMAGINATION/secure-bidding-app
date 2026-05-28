@@ -239,6 +239,10 @@ module SecureBiddingApp
 
     private
 
+    def valid_uuid?(id)
+      id.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i)
+    end
+
     def require_login!(routing)
       return if @current_account
 
@@ -493,7 +497,8 @@ module SecureBiddingApp
         state: routing.params['state'].to_s.strip,
         bidding_deadline: routing.params['bidding_deadline'].to_s.strip,
         nacl_public_key: routing.params['nacl_public_key'].to_s.strip,
-        nacl_encrypted_private_key: routing.params['nacl_encrypted_private_key'].to_s.strip
+        nacl_encrypted_private_key: routing.params['nacl_encrypted_private_key'].to_s.strip,
+        project_passphrase: routing.params['project_passphrase'].to_s.strip  # Client-side only, not sent to API
       )
 
       if validation.failure?
@@ -528,6 +533,16 @@ module SecureBiddingApp
 
     def handle_bid_submission(routing, project_id)
       require_login!(routing)
+
+      unless valid_uuid?(project_id)
+        flash.now[:error] = 'Invalid project ID format'
+        response.status = 404
+        return view :project_detail, locals: {
+          project: nil,
+          current_account: @current_account,
+          is_owner: false
+        }
+      end
 
       unless @current_account['token']
         flash.now[:error] =

@@ -27,6 +27,11 @@ div class="row justify-content-center mt-4"
               option value="saved" Save as Draft
               option value="published" Publish Immediately
 
+          div class="mb-3"
+            label for="project_passphrase" class="form-label" Project Passphrase
+            input type="password" class="form-control" id="project_passphrase" name="project_passphrase" required=true minlength="8" placeholder="Strong passphrase to secure project encryption keys"
+            small class="form-text text-muted" Use a strong passphrase (8+ characters). This is needed to decrypt private keys.
+
           / Hidden fields for NaCl encryption keys (populated by JS)
           input type="hidden" id="nacl_public_key" name="nacl_public_key" value=""
           input type="hidden" id="nacl_encrypted_private_key" name="nacl_encrypted_private_key" value=""
@@ -44,45 +49,70 @@ div class="row justify-content-center mt-4"
           |   const statusDiv = document.getElementById('crypto-status');
           |   const statusMessage = document.getElementById('crypto-message');
           |   const submitBtn = document.getElementById('submit-btn');
+          |   const passphraseField = document.getElementById('project_passphrase');
           |   
-          |   try {
-          |     // Generate keypair
-          |     const keyPair = CryptoUtils.generateKeyPair();
-          |     document.getElementById('nacl_public_key').value = keyPair.publicKey;
+          |   // Enable form submission after user enters passphrase
+          |   passphraseField.addEventListener('input', async function() {
+          |     const passphrase = this.value.trim();
+          |     if (passphrase.length < 8) {
+          |       submitBtn.disabled = true;
+          |       return;
+          |     }
           |     
-          |     // Generate dummy password (in production, could prompt user)
-          |     // For now, we'll create a secure key and store locally
-          |     const tempPassword = Date.now().toString(); // Use timestamp as temporary key
+          |     try {
+          |       // Generate keypair if not already done
+          |       if (!document.getElementById('nacl_public_key').value) {
+          |         const keyPair = CryptoUtils.generateKeyPair();
+          |         document.getElementById('nacl_public_key').value = keyPair.publicKey;
+          |         
+          |         // Encrypt private key with user passphrase
+          |         const encrypted = await CryptoUtils.encryptPrivateKeyWithPassword(
+          |           keyPair.secretKey,
+          |           passphrase
+          |         );
+          |         
+          |         // Store encrypted key (nonce + salt + ciphertext as JSON)
+          |         const keyData = JSON.stringify({
+          |           ciphertext: encrypted.ciphertext,
+          |           nonce: encrypted.nonce,
+          |           salt: encrypted.salt
+          |         });
+          |         document.getElementById('nacl_encrypted_private_key').value = keyData;
+          |         
+          |         statusMessage.textContent = '✓ Cryptographic keys generated and secured with passphrase';
+          |         statusDiv.classList.remove('alert-info');
+          |         statusDiv.classList.add('alert-success');
+          |       } else {
+          |         // Re-encrypt with updated passphrase
+          |         const keyPair = CryptoUtils.generateKeyPair();
+          |         document.getElementById('nacl_public_key').value = keyPair.publicKey;
+          |         
+          |         const encrypted = await CryptoUtils.encryptPrivateKeyWithPassword(
+          |           keyPair.secretKey,
+          |           passphrase
+          |         );
+          |         
+          |         const keyData = JSON.stringify({
+          |           ciphertext: encrypted.ciphertext,
+          |           nonce: encrypted.nonce,
+          |           salt: encrypted.salt
+          |         });
+          |         document.getElementById('nacl_encrypted_private_key').value = keyData;
+          |       }
+          |       
+          |       submitBtn.disabled = false;
+          |     } catch (err) {
+          |       console.error('Crypto error:', err);
+          |       statusMessage.textContent = 'Error: ' + err.message;
+          |       statusDiv.classList.remove('alert-info');
+          |       statusDiv.classList.add('alert-danger');
+          |       submitBtn.disabled = true;
+          |     }
           |     
-          |     // Encrypt private key with password
-          |     const encrypted = await CryptoUtils.encryptPrivateKeyWithPassword(
-          |       keyPair.secretKey,
-          |       tempPassword
-          |     );
-          |     
-          |     // Store encrypted key (nonce + salt + ciphertext as JSON)
-          |     const keyData = JSON.stringify({
-          |       ciphertext: encrypted.ciphertext,
-          |       nonce: encrypted.nonce,
-          |       salt: encrypted.salt
-          |     });
-          |     document.getElementById('nacl_encrypted_private_key').value = keyData;
-          |     
-          |     statusMessage.textContent = '✓ Cryptographic keys generated and secured';
-          |     statusDiv.classList.remove('alert-info');
-          |     statusDiv.classList.add('alert-success');
-          |     submitBtn.disabled = false;
-          |   } catch (err) {
-          |     console.error('Crypto error:', err);
-          |     statusMessage.textContent = 'Error: ' + err.message;
-          |     statusDiv.classList.remove('alert-info');
-          |     statusDiv.classList.add('alert-danger');
-          |     submitBtn.disabled = true;
-          |   }
+          |     statusDiv.style.display = 'block';
+          |   });
           |   
-          |   statusDiv.style.display = 'block';
-          |   
-          |   // Validate deadline is in future
+          |   // Validate deadline is in future (server-side validation will also catch this)
           |   form.addEventListener('submit', function(e) {
           |     const deadline = new Date(document.getElementById('bidding_deadline').value);
           |     if (deadline <= new Date()) {

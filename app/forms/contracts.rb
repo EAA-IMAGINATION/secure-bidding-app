@@ -4,6 +4,9 @@ require 'dry-validation'
 
 module SecureBiddingApp
   module Forms
+    # UUID regex pattern for validation
+    UUID_PATTERN = /\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i.freeze
+
     # Login form validation schema
     class Login < Dry::Validation::Contract
       params do
@@ -43,6 +46,41 @@ module SecureBiddingApp
         required(:bidding_deadline).filled(:string)
         required(:nacl_public_key).filled(:string)
         required(:nacl_encrypted_private_key).filled(:string)
+        optional(:project_passphrase).maybe(:string)  # Client-side only, not sent to API
+      end
+
+      rule(:bidding_deadline) do
+        next if value.to_s.empty?
+
+        begin
+          deadline = DateTime.iso8601(value)
+          if deadline <= DateTime.now
+            key.failure('must be in the future')
+          end
+        rescue ArgumentError, TypeError
+          key.failure('must be a valid ISO 8601 date and time')
+        end
+      end
+
+      rule(:nacl_public_key) do
+        next if value.to_s.empty?
+
+        unless value.match?(/\A[A-Za-z0-9+\/=]+\z/)
+          key.failure('must be valid base64')
+        end
+      end
+
+      rule(:nacl_encrypted_private_key) do
+        next if value.to_s.empty?
+
+        begin
+          parsed = JSON.parse(value)
+          unless parsed.is_a?(Hash) && parsed['ciphertext'] && parsed['nonce'] && parsed['salt']
+            key.failure('must contain ciphertext, nonce, and salt')
+          end
+        rescue JSON::ParserError
+          key.failure('must be valid JSON with ciphertext, nonce, and salt')
+        end
       end
     end
 
