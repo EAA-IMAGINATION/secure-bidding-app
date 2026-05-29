@@ -380,8 +380,22 @@ module SecureBiddingApp
       return true unless resource.is_a?(Hash) && resource['policy'].is_a?(Hash)
 
       policy = resource['policy']
+      # Map legacy/view action names to canonical API policy keys
+      mapping = {
+        'edit' => 'update',
+        'delete' => 'destroy',
+        'create_bid' => 'bid',
+        'submit_bid' => 'bid',
+        'create' => 'create',
+        'view_bids' => 'view_bid_submissions',
+        'manage_owners' => 'manage_memberships',
+        'accept_ownership' => 'accept_ownership',
+        'is_owner' => 'is_owner'
+      }
+
       key = action.to_s
-      variants = [key, key.gsub('-', '_'), key.gsub(' ', '_'), "#{key}_allowed"]
+      candidate = mapping[key] || key
+      variants = [candidate, candidate.gsub('-', '_'), candidate.gsub(' ', '_'), "#{candidate}_allowed"]
       variants.any? { |k| !!policy[k] }
     end
 
