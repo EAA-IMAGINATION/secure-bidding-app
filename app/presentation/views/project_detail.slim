@@ -30,7 +30,7 @@ div class="row justify-content-center mt-4"
               form method="post" action="/projects/#{project['id']}/delete" class="d-inline"
                 button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this project?');" Delete Project
 
-        - if project && (project['policy'] && (project['policy']['is_owner'] || (current_account && admin?(current_account))))
+        - if project && (project['policy'].nil? ? (current_account && admin?(current_account)) : (allowed?(project, 'is_owner') || (current_account && admin?(current_account))))
           div class="card mt-3"
             div class="card-body"
               h5 class="card-title" Manage Owners
@@ -78,7 +78,7 @@ div class="row justify-content-center mt-4"
         div class="card-body"
           h5 class="card-title" Submit a Bid
 
-          - if is_owner || (project && project['policy'] && project['policy']['is_owner'])
+          - if is_owner || (project && (project['policy'].nil? ? false : allowed?(project, 'is_owner')))
             div class="alert alert-warning" You are the project owner and cannot bid on your own project.
           - else
             - if project && project['nacl_public_key']
