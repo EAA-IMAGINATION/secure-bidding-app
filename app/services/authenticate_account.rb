@@ -13,7 +13,9 @@ module SecureBiddingApp
 
     def call(username:, password:)
       validate_params(username, password)
-      @client.post('/auth/authenticate', { username: username, password: password })
+      res = @client.post('/auth/authenticate', { username: username, password: password })
+      # Wrap API response in Account model (preserve token if present)
+      Account.from_hash(res, res.is_a?(Hash) ? res['token'] : nil)
     rescue ApiClient::ApiError => e
       raise UnauthorizedError, "Authentication failed: #{e.message}"
     end
