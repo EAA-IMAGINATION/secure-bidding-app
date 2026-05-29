@@ -251,12 +251,17 @@ module SecureBiddingApp
     end
 
     def load_profile_account
-      account = FetchAccount.new(App.config).call(user_id: @current_account['id'], auth_token: get_auth_token)
-      account = @current_account.merge(account)
-      token = get_auth_token
-      return account if token.to_s.strip.empty?
+      fetched = FetchAccount.new(App.config).call(user_id: @current_account['id'], auth_token: get_auth_token)
 
-      account.merge('token' => token)
+      # Normalize to hashes for safe merging, then wrap back into Account model
+      base_hash = @current_account.respond_to?(:to_h) ? @current_account.to_h : (@current_account || {})
+      fetched_hash = fetched.respond_to?(:to_h) ? fetched.to_h : (fetched || {})
+
+      merged = base_hash.merge(fetched_hash)
+      token = get_auth_token
+      merged['token'] = token unless token.to_s.strip.empty?
+
+      Account.from_hash(merged, token)
     end
 
     def account_email_verified?(account)
@@ -309,19 +314,20 @@ module SecureBiddingApp
         auth_token: get_auth_token
       )
 
-      merged_account = account.merge(
+      merged_hash = (account.respond_to?(:to_h) ? account.to_h : account).merge(
         'username' => validated[:username],
         'email' => validated[:email]
       )
-      merged_account['email_verified'] = false if merged_account['email'] != account['email']
+      merged_hash['email_verified'] = false if merged_hash['email'] != account['email']
+      merged_account = Account.from_hash(merged_hash, get_auth_token)
       @current_session.store_current_account(merged_account)
 
-      flash[:notice] = if merged_account['email'] != account['email']
+      flash[:notice] = if merged_hash['email'] != account['email']
                          'Verification email sent — please check your inbox.'
                        else
                          'Account updated successfully'
                        end
-      routing.redirect redirect_to_profile(merged_account['username'])
+      routing.redirect redirect_to_profile(merged_hash['username'])
     rescue AuthenticateAccount::UnauthorizedError
       flash.now[:error] = 'Current password is incorrect'
       response.status = 403
@@ -362,24 +368,38 @@ module SecureBiddingApp
     end
 
     def system_roles_of(current_account)
-      current_account&.dig('include', 'system_roles') || current_account&.dig('system_roles') || []
+      return [] unless current_account
+
+      if current_account.respond_to?(:system_roles)
+        current_account.system_roles || []
+      elsif current_account.is_a?(Hash)
+        current_account.dig('include', 'system_roles') || current_account['system_roles'] || []
+      else
+        []
+      end
     end
 
     def admin?(current_account)
       return false unless current_account
 
-      # Check system_role field (singular) - the main role assigned to the account
-      current_account['system_role'] == 'admin' ||
-        # Also check system_roles array for both 'admin' (legacy) and 'system_admin' (new)
-        system_roles_of(current_account).any? { |role| role == 'admin' || role == 'system_admin' }
+      # Prefer Account#admin? when available (reads API capabilities). Fall back to legacy checks.
+      return true if current_account.respond_to?(:admin?) && current_account.admin?
+
+      if current_account.respond_to?(:[]) || current_account.is_a?(Hash)
+        current_account['system_role'] == 'admin' ||
+          system_roles_of(current_account).any? { |role| role == 'admin' || role == 'system_admin' }
+      else
+        false
+      end
     end
 
     # Check API-provided policy summaries to determine whether an action is allowed on a resource.
     # If the API did not return a policy for the resource, fall back to the existing server-side checks in views.
     def allowed?(resource, action)
-      return true unless resource.is_a?(Hash) && resource['policy'].is_a?(Hash)
+      # Grab policy from Hash-like resources (support model objects that implement [] / dig)
+      policy = if resource.respond_to?(:[]) then resource['policy'] elsif resource.is_a?(Hash) then resource['policy'] else nil end
+      return true unless policy.is_a?(Hash)
 
-      policy = resource['policy']
       # Map legacy/view action names to canonical API policy keys
       mapping = {
         'edit' => 'update',
