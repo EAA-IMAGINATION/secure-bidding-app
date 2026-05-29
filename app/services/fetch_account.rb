@@ -10,7 +10,8 @@ module SecureBiddingApp
 
     def call(user_id:, auth_token: nil)
       client = client_with_auth(auth_token)
-      client.get("/accounts/#{user_id}")
+      res = client.get("/accounts/#{user_id}")
+      Account.from_hash(res, auth_token)
     end
 
     private
