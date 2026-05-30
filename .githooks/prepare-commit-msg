@@ -1,16 +1,6 @@
 #!/bin/sh
-# Strips AI co-author trailers before the commit message is saved.
+# Runs BEFORE the commit object is created — strips Copilot/Cursor (and other AI) trailers.
 # Enable: git config core.hooksPath .githooks
 
-MSG_FILE="$1"
-if [ ! -f "$MSG_FILE" ]; then
-  exit 0
-fi
-
-# Remove Co-authored-by lines referencing known AI tools (case-insensitive)
-sed -i.bak \
-  -e '/^Co-authored-by:.*[Cc]opilot/d' \
-  -e '/^Co-authored-by:.*[Cc]ursor/d' \
-  -e '/^Co-authored-by:.*OpenAI/d' \
-  -e '/^Co-authored-by:.*Anthropic/d' \
-  "$MSG_FILE" && rm -f "$MSG_FILE.bak"
+. "$(dirname "$0")/strip-ai-trailers.sh"
+strip_ai_trailers "$1"

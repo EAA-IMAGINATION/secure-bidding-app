@@ -2,39 +2,34 @@
 
 **Shared rules for secure-bidding-api and secure-bidding-app.**
 
-## Hard rules (always)
+## Hard rules (always — course policy)
 
-1. **No AI co-author trailers** — see [commit-authorship](commit-authorship.md)
+1. **No Copilot or Cursor co-author trailers** — see [commit-authorship](commit-authorship.md)
 2. **Hooks enabled** — `git config core.hooksPath .githooks` once per clone
+3. **Never use `--no-verify`** to bypass trailer hooks
+
+## Before each local commit (hook order)
+
+Git runs hooks in this order; authorship is enforced **before the commit lands**:
+
+1. **`pre-commit`** — lint staged `.md` files only
+2. **`prepare-commit-msg`** — strip AI trailers (Copilot, Cursor, OpenAI, Anthropic)
+3. **`commit-msg`** — strip again; fail if Copilot/Cursor trailers remain
+
+Implementation: `.githooks/strip-ai-trailers.sh` (shared by both message hooks).
 
 ## Relaxed rules (current)
 
-1. **Direct commits on default branch** — allowed (`main` / `master`)
-2. **No PR required** for every change
-3. **CI `check_trailers`** — warning only, does not fail the workflow
-4. **No force-push** on default branch unless the user explicitly requests history rewrite
-
-## Enforcement parity
-
-| Layer | API | App | Same? |
-| --- | --- | --- | --- |
-| `pre-commit` hook | markdownlint | markdownlint | Yes |
-| `prepare-commit-msg` | Strips AI trailers | Strips AI trailers | Yes |
-| `commit-msg` | Blocks AI trailers | Blocks AI trailers | Yes |
-| `policy-check.yml` | Advisory `check_trailers` | Advisory `check_trailers` | Yes |
-| Default branch | `master` | `main` | Name differs only |
+- Direct commits on `main` / `master` are allowed
+- CI `check_trailers` warns only (does not fail the workflow)
 
 ## One-time setup (each clone)
 
 ```bash
 git config core.hooksPath .githooks
-chmod +x .githooks/pre-commit .githooks/prepare-commit-msg .githooks/commit-msg
+chmod +x .githooks/strip-ai-trailers.sh .githooks/pre-commit .githooks/prepare-commit-msg .githooks/commit-msg
 ```
 
-## Troubleshooting
+## CI (advisory)
 
-| Symptom | Fix |
-| --- | --- |
-| Commit rejected for AI trailer | Remove `Co-authored-by` lines; hook should strip on retry |
-| CI warning about trailers | Rewrite or amend commits to remove trailers |
-| Hooks not running | Run `git config core.hooksPath .githooks` |
+`policy-check.yml` scans for Copilot, Cursor, OpenAI, and Anthropic `Co-authored-by` lines.

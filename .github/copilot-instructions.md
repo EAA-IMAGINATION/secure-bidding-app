@@ -11,7 +11,7 @@
 | --- | --- | --- |
 | **This file** | Copilot reads it automatically in this repo | Every Copilot session |
 | **Skills** (`.github/skills/`) | Playbooks Copilot reads when pointed to them | When a task matches the trigger |
-| **Git hooks** (`.githooks/`) | Strip/block AI trailers in commit messages | Every local commit after hook setup |
+| **Git hooks** (`.githooks/`) | `prepare-commit-msg` + `commit-msg` strip/block Copilot and Cursor | After hook setup |
 | **GitHub Actions** | Advisory trailer check; see [repo-policy-enforcement](.github/skills/repo-policy-enforcement.md) | Every push and PR |
 
 Copilot does **not** automatically read every skill file — it follows this index.
