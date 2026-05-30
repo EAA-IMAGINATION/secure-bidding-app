@@ -10,8 +10,11 @@ module SecureBiddingApp
       @config = config
     end
 
-    def call(project_id)
-      client = ApiClient.new(@config.API_URL)
+    def call(project_id, auth_token: nil)
+      headers = {}
+      headers['Authorization'] = "Bearer #{auth_token}" if auth_token
+
+      client = ApiClient.new(@config.API_URL, default_headers: headers)
       res = client.get("/projects/#{project_id}")
       Project.from_hash(res)
     rescue ApiClient::ApiError => e

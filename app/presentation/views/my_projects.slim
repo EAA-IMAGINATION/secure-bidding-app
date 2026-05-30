@@ -26,9 +26,9 @@
                   td
                     .btn-group role="group"
                       a.btn.btn-sm.btn-info href="/projects/#{project['id']}" View
-                      - if current_account && admin?(current_account)
+                      - if project && allowed?(project, 'edit')
                         a.btn.btn-sm.btn-warning href="/projects/#{project['id']}/edit" Edit
-                      - if project['state'] == 'published' && current_account && !admin?(current_account)
+                      - if project['state'] == 'published' && current_account && allowed?(project, 'submit_bid')
                         a.btn.btn-sm.btn-primary href="/projects/#{project['id']}" Bid
       - else
         .alert.alert-info
