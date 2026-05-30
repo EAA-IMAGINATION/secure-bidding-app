@@ -174,6 +174,7 @@ module SecureBiddingApp
       routing.on 'new' do
         routing.get do
           require_login!(routing)
+          require_email_verified!(routing)
           view :project_new
         end
       end
@@ -181,6 +182,7 @@ module SecureBiddingApp
       routing.on 'my' do
         routing.get do
           require_login!(routing)
+          require_email_verified!(routing)
           handle_my_projects(routing)
         end
       end
@@ -195,12 +197,14 @@ module SecureBiddingApp
         routing.on 'memberships' do
           routing.post do
             require_login!(routing)
+            require_email_verified!(routing)
             handle_add_membership_post(routing, project_id)
           end
 
           routing.on 'accept' do
             routing.post do
               require_login!(routing)
+              require_email_verified!(routing)
               handle_accept_membership_post(routing, project_id)
             end
           end
@@ -209,11 +213,13 @@ module SecureBiddingApp
         routing.on 'edit' do
           routing.get do
             require_login!(routing)
+            require_email_verified!(routing)
             handle_admin_edit_project_get(routing, project_id)
           end
 
           routing.post do
             require_login!(routing)
+            require_email_verified!(routing)
             handle_admin_edit_project_post(routing, project_id)
           end
         end
@@ -221,6 +227,7 @@ module SecureBiddingApp
         routing.on 'delete' do
           routing.post do
             require_login!(routing)
+            require_email_verified!(routing)
             handle_admin_delete_project(routing, project_id)
           end
         end
@@ -228,6 +235,7 @@ module SecureBiddingApp
         routing.on 'milestones' do
           routing.post do
             require_login!(routing)
+            require_email_verified!(routing)
             handle_create_milestone(routing, project_id)
           end
         end
@@ -236,6 +244,7 @@ module SecureBiddingApp
           routing.on 'fund' do
             routing.post do
               require_login!(routing)
+              require_email_verified!(routing)
               handle_fund_escrow(routing, project_id)
             end
           end
@@ -243,6 +252,7 @@ module SecureBiddingApp
           routing.on 'release' do
             routing.post do
               require_login!(routing)
+              require_email_verified!(routing)
               handle_release_escrow(routing, project_id)
             end
           end
@@ -273,6 +283,16 @@ module SecureBiddingApp
       routing.redirect '/auth/login'
     end
 
+    def require_email_verified!(routing)
+      return unless @current_account
+      return if account_email_verified?(@current_account)
+
+      flash[:error] =
+        'Please verify your email before using this feature. Resend a verification email from your account page.'
+      username = @current_account['username'] || @current_account[:username]
+      routing.redirect "/account/#{username}"
+    end
+
     def load_profile_account
       fetched = FetchAccount.new(App.config).call(user_id: @current_account['id'], auth_token: get_auth_token)
 
@@ -288,7 +308,9 @@ module SecureBiddingApp
     end
 
     def account_email_verified?(account)
-      return false unless account.is_a?(Hash)
+      return false unless account
+
+      return account.email_verified? if account.respond_to?(:email_verified?)
 
       value = account['email_verified']
       return true if value == true || value.to_s == 'true'
@@ -583,9 +605,10 @@ module SecureBiddingApp
 
     def handle_create_project(routing)
       require_login!(routing)
+      require_email_verified!(routing)
 
       unless can_create_projects?(@current_account)
-        flash.now[:error] = 'Admins cannot create projects'
+        flash.now[:error] = 'You cannot create projects with your current account'
         response.status = 403
         return view :project_new
       end
@@ -677,18 +700,12 @@ module SecureBiddingApp
 
     def handle_bid_submission(routing, project_id)
       require_login!(routing)
+      require_email_verified!(routing)
 
       unless valid_uuid?(project_id)
         flash.now[:error] = 'Invalid project ID format'
         response.status = 404
         return view :project_detail, locals: project_detail_locals(project_id).merge(project: nil, is_owner: false)
-      end
-
-      unless @current_account['token']
-        flash.now[:error] =
-          'You must be verified to submit bids. Please complete the registration verification.'
-        response.status = 403
-        return view :project_detail, locals: project_detail_locals(project_id)
       end
 
       # Validate
