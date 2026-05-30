@@ -2,8 +2,8 @@
 
 > **#1 RULE — COMMIT AUTHORSHIP**
 > Never add `Co-authored-by` trailers for Copilot, Cursor, or any AI tool.
-> CI rejects them. The developer is the sole author and runs `git commit`.
-> Read `.github/skills/commit-authorship.md` before every commit.
+> Hooks strip/block them (course rule). Read `.github/skills/commit-authorship.md`
+> before every commit.
 
 ## How Copilot, skills, hooks, and CI relate
 
@@ -11,8 +11,8 @@
 | --- | --- | --- |
 | **This file** | Copilot reads it automatically in this repo | Every Copilot session |
 | **Skills** (`.github/skills/`) | Playbooks Copilot reads when pointed to them | When a task matches the trigger |
-| **Git hooks** (`.githooks/`) | Block default-branch commits; strip AI trailers | Every local commit after hook setup |
-| **GitHub Actions** | See [repo-policy-enforcement](.github/skills/repo-policy-enforcement.md) | Every push and PR |
+| **Git hooks** (`.githooks/`) | Strip/block AI trailers in commit messages | Every local commit after hook setup |
+| **GitHub Actions** | Advisory trailer check; see [repo-policy-enforcement](.github/skills/repo-policy-enforcement.md) | Every push and PR |
 
 Copilot does **not** automatically read every skill file — it follows this index.
 Workflows do **not** instruct Copilot; they **enforce** rules after push.
@@ -25,8 +25,8 @@ Full parity table: [repo-policy-enforcement](.github/skills/repo-policy-enforcem
 1. **Commit authorship** — See skill: [commit-authorship](.github/skills/commit-authorship.md)
 2. **Weekly scope** — See [weekly-scope-gating](.github/skills/weekly-scope-gating.md) and
    `.github/weekly-specifications/week-N.md`
-3. **Feature branches** — Never edit on `main`/`master`. See
-   [feature-branch-workflow](.github/skills/feature-branch-workflow.md)
+3. **Branches** — Direct commits on `main` are OK (relaxed). Use feature branches
+   for large work. See [feature-branch-workflow](.github/skills/feature-branch-workflow.md)
 4. **Test-first** — See [tdd-mastery](.github/skills/tdd-mastery.md)
 
 ## Skill Index

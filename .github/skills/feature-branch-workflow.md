@@ -2,73 +2,26 @@
 
 ## When to use
 
-- At the start of every new feature, before any file edits
+- When you want an isolated branch or PR review
+- **Not required** for every change while workflow is relaxed
 
-## Rule
+## Current rule (relaxed)
 
-Never work directly from `main`/`master`. All work merges via PR.
+Direct commits and pushes to `main` are **allowed** so agents and developers can ship
+without opening a PR every time. Prefer feature branches for large or risky work.
 
-## Workflow
+## Optional workflow
 
 1. Check branch: `git branch --show-current`
-2. If on `main` or `master`, create and switch immediately:
+2. For larger features: `git checkout -b feature-name`
+3. Implement, test, commit, push (or merge via PR if you prefer review)
 
-   ```bash
-   git checkout -b feature-name
-   ```
+## Hard rule (unchanged — course policy)
 
-3. Implement and test on the feature branch only.
-4. Open a PR for review before merging.
+Never put AI `Co-authored-by` lines in commit messages. Hooks strip them locally;
+see [commit-authorship](commit-authorship.md).
 
-## Local protection
+## Branch protection (optional)
 
-The `pre-commit` hook blocks commits on `main`/`master` when hooks are enabled:
-
-```bash
-git config core.hooksPath .githooks
-```
-
-See [repo-policy-enforcement](repo-policy-enforcement.md) for the full hook and
-CI parity table.
-
-## GitHub branch protection (remote)
-
-Protect the default branch on GitHub so direct pushes are rejected even without
-local hooks. As repo admin:
-
-```bash
-# API (default branch: master)
-gh api -X PUT repos/EAA-IMAGINATION/secure-bidding-api/branches/master/protection \
-  --input - <<'EOF'
-{
-  "required_status_checks": {
-    "strict": true,
-    "contexts": ["check_trailers"]
-  },
-  "enforce_admins": true,
-  "required_pull_request_reviews": null,
-  "restrictions": null,
-  "allow_force_pushes": false,
-  "allow_deletions": false
-}
-EOF
-
-# App (default branch: main)
-gh api -X PUT repos/EAA-IMAGINATION/secure-bidding-app/branches/main/protection \
-  --input - <<'EOF'
-{
-  "required_status_checks": {
-    "strict": true,
-    "contexts": ["check_trailers"]
-  },
-  "enforce_admins": true,
-  "required_pull_request_reviews": null,
-  "restrictions": null,
-  "allow_force_pushes": false,
-  "allow_deletions": false
-}
-EOF
-```
-
-Or use GitHub → Settings → Branches → Add rule: require PR, require
-`check_trailers` status, disable force push.
+GitHub branch protection and required `check_trailers` are **not** required while
+relaxed. `policy-check.yml` logs warnings only and does not fail the workflow.

@@ -1,13 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Block direct commits on protected default branches
-branch="$(git branch --show-current 2>/dev/null || true)"
-if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
-  echo "ERROR: Direct commits on '$branch' are not allowed."
-  echo "Create a feature branch first. See .github/skills/feature-branch-workflow.md"
-  exit 1
-fi
+# Direct commits on main/master are allowed (relaxed workflow). Course rule:
+# no AI Co-authored-by trailers — see prepare-commit-msg and commit-msg hooks.
 
 markdown_files=()
 while IFS= read -r file; do

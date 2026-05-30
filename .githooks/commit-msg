@@ -1,0 +1,13 @@
+#!/bin/sh
+# Reject commit messages that still contain AI co-author trailers (course rule).
+# prepare-commit-msg strips them first; this catches anything that slips through.
+
+MSG_FILE="$1"
+if [ ! -f "$MSG_FILE" ]; then
+  exit 0
+fi
+
+if grep -qiE '^Co-authored-by:.*(copilot|cursor|openai|anthropic)' "$MSG_FILE"; then
+  echo "ERROR: Remove AI Co-authored-by trailers from the commit message (course rule)."
+  exit 1
+fi
