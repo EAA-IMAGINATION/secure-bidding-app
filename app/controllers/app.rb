@@ -225,6 +225,29 @@ module SecureBiddingApp
           end
         end
 
+        routing.on 'milestones' do
+          routing.post do
+            require_login!(routing)
+            handle_create_milestone(routing, project_id)
+          end
+        end
+
+        routing.on 'escrow' do
+          routing.on 'fund' do
+            routing.post do
+              require_login!(routing)
+              handle_fund_escrow(routing, project_id)
+            end
+          end
+
+          routing.on 'release' do
+            routing.post do
+              require_login!(routing)
+              handle_release_escrow(routing, project_id)
+            end
+          end
+        end
+
         routing.get do
           handle_project_detail(routing, project_id)
         end
@@ -398,7 +421,7 @@ module SecureBiddingApp
     def allowed?(resource, action)
       # Grab policy from Hash-like resources (support model objects that implement [] / dig)
       policy = if resource.respond_to?(:[]) then resource['policy'] elsif resource.is_a?(Hash) then resource['policy'] else nil end
-      return true unless policy.is_a?(Hash)
+      return false unless policy.is_a?(Hash) && !policy.empty?
 
       # Map legacy/view action names to canonical API policy keys
       mapping = {
@@ -410,7 +433,9 @@ module SecureBiddingApp
         'view_bids' => 'view_bid_submissions',
         'manage_owners' => 'manage_memberships',
         'accept_ownership' => 'accept_ownership',
-        'is_owner' => 'is_owner'
+        'is_owner' => 'manage_memberships',
+        'view_bid_count' => 'view_bid_count',
+        'manage_milestones' => 'manage_milestones'
       }
 
       key = action.to_s
@@ -439,8 +464,8 @@ module SecureBiddingApp
       if account_id.empty?
         flash.now[:error] = 'Account ID is required'
         response.status = 400
-        project = FetchProjectDetail.new(App.config).call(project_id)
-        return view :project_detail, locals: { project: project, current_account: @current_account, is_owner: false }
+        project = project_detail_locals(project_id)[:project]
+        return view :project_detail, locals: project_detail_locals(project_id)
       end
 
       result = CreateProjectMembership.new(App.config).call(
@@ -459,13 +484,11 @@ module SecureBiddingApp
     rescue CreateProjectMembership::ValidationError => e
       flash.now[:error] = e.message
       response.status = 400
-      project = FetchProjectDetail.new(App.config).call(project_id)
-      view :project_detail, locals: { project: project, current_account: @current_account, is_owner: false }
+      view :project_detail, locals: project_detail_locals(project_id)
     rescue ApiClient::ApiError => e
       flash.now[:error] = api_error_message(e, 'Failed to add co-owner')
       response.status = e.status.to_i
-      project = FetchProjectDetail.new(App.config).call(project_id)
-      view :project_detail, locals: { project: project, current_account: @current_account, is_owner: false }
+      view :project_detail, locals: project_detail_locals(project_id)
     end
 
     def handle_accept_membership_post(routing, project_id)
@@ -475,13 +498,11 @@ module SecureBiddingApp
     rescue AcceptProjectMembership::PermissionError => e
       flash.now[:error] = e.message
       response.status = 403
-      project = FetchProjectDetail.new(App.config).call(project_id)
-      view :project_detail, locals: { project: project, current_account: @current_account, is_owner: false }
+      view :project_detail, locals: project_detail_locals(project_id)
     rescue ApiClient::ApiError => e
       flash.now[:error] = api_error_message(e, 'Failed to accept invitation')
       response.status = e.status.to_i
-      project = FetchProjectDetail.new(App.config).call(project_id)
-      view :project_detail, locals: { project: project, current_account: @current_account, is_owner: false }
+      view :project_detail, locals: project_detail_locals(project_id)
     end
 
     def handle_my_projects(routing)
@@ -490,7 +511,7 @@ module SecureBiddingApp
         return routing.redirect '/auth/login'
       end
 
-      projects = FetchProjects.new(App.config).call
+      projects = FetchProjects.new(App.config).call(auth_token: get_auth_token)
       view :my_projects, locals: { current_account: @current_account, projects: projects }
     rescue FetchProjects::ServiceError => e
       flash.now[:error] = "Failed to fetch your projects: #{e.message}"
@@ -498,16 +519,45 @@ module SecureBiddingApp
       view :my_projects, locals: { current_account: @current_account, projects: [] }
     end
 
-    def handle_project_detail(_routing, project_id)
-      project = FetchProjectDetail.new(App.config).call(project_id)
-      is_owner = false # API doesn't return owner info, will be enforced on bid submission
-      view :project_detail,
-           locals: { project: project, current_account: @current_account, is_owner: is_owner }
+    def fetch_project_detail(project_id)
+      auth_token = get_auth_token
+      FetchProjectDetail.new(App.config).call(project_id, auth_token: auth_token)
+    end
+
+    def enrich_project_workspace(project)
+      data = project.to_h
+      token = get_auth_token
+      return Project.from_hash(data) unless token
+
+      if project.allowed?('view_bid_count')
+        count_payload = FetchProjectBidCount.new(App.config).call(project.id, auth_token: token)
+        data['bid_count'] = count_payload['bid_count']
+      end
+
+      if project.allowed?('manage_milestones')
+        milestone_payload = FetchProjectMilestones.new(App.config).call(project.id, auth_token: token)
+        data['milestones'] = milestone_payload['milestones'] || []
+      end
+
+      Project.from_hash(data)
+    rescue FetchProjectBidCount::ServiceError, FetchProjectMilestones::ServiceError => e
+      App.logger.warn "Project workspace enrichment failed: #{e.message}"
+      Project.from_hash(data)
+    end
+
+    def project_detail_locals(project_id)
+      project = enrich_project_workspace(fetch_project_detail(project_id))
+      {
+        project: project,
+        current_account: @current_account,
+        is_owner: project.allowed?('manage_memberships')
+      }
     rescue FetchProjectDetail::NotFoundError
-      response.status = 404
-      flash.now[:error] = 'Project not found'
-      view :project_detail,
-           locals: { project: nil, current_account: @current_account, is_owner: false }
+      { project: nil, current_account: @current_account, is_owner: false }
+    end
+
+    def handle_project_detail(_routing, project_id)
+      view :project_detail, locals: project_detail_locals(project_id)
     rescue FetchProjectDetail::ServiceError => e
       response.status = 500
       flash.now[:error] = e.message
@@ -515,10 +565,26 @@ module SecureBiddingApp
            locals: { project: nil, current_account: @current_account, is_owner: false }
     end
 
+    def can_create_projects?(account = @current_account)
+      return false unless account
+
+      return account.can_create_projects? if account.respond_to?(:can_create_projects?)
+
+      !admin?(account)
+    end
+
+    def can_manage_accounts?(account = @current_account)
+      return false unless account
+
+      return account.can_manage_accounts? if account.respond_to?(:can_manage_accounts?)
+
+      admin?(account)
+    end
+
     def handle_create_project(routing)
       require_login!(routing)
 
-      if admin?(@current_account)
+      unless can_create_projects?(@current_account)
         flash.now[:error] = 'Admins cannot create projects'
         response.status = 403
         return view :project_new
@@ -565,28 +631,64 @@ module SecureBiddingApp
       view :project_new
     end
 
+    def handle_create_milestone(routing, project_id)
+      locals = project_detail_locals(project_id)
+      unless locals[:project] && allowed?(locals[:project], 'manage_milestones')
+        flash[:error] = 'You are not allowed to manage milestones for this project'
+        return routing.redirect "/projects/#{project_id}"
+      end
+
+      CreateMilestone.new(App.config).call(
+        project_id: project_id,
+        title: routing.params['title'],
+        budget_cents: routing.params['budget_cents'],
+        description: routing.params['description'],
+        auth_token: get_auth_token
+      )
+      flash[:notice] = 'Milestone created'
+      routing.redirect "/projects/#{project_id}"
+    rescue CreateMilestone::ValidationError => e
+      flash[:error] = e.message
+      routing.redirect "/projects/#{project_id}"
+    rescue CreateMilestone::ServiceError => e
+      flash[:error] = e.message
+      routing.redirect "/projects/#{project_id}"
+    end
+
+    def handle_fund_escrow(routing, project_id)
+      milestone_id = routing.params['milestone_id'].to_s
+      FundEscrow.new(App.config).call(milestone_id: milestone_id, auth_token: get_auth_token)
+      flash[:notice] = 'Escrow funded (placeholder gateway)'
+      routing.redirect "/projects/#{project_id}"
+    rescue FundEscrow::ServiceError => e
+      flash[:error] = e.message
+      routing.redirect "/projects/#{project_id}"
+    end
+
+    def handle_release_escrow(routing, project_id)
+      milestone_id = routing.params['milestone_id'].to_s
+      ReleaseEscrow.new(App.config).call(milestone_id: milestone_id, auth_token: get_auth_token)
+      flash[:notice] = 'Escrow released to contractor (placeholder gateway)'
+      routing.redirect "/projects/#{project_id}"
+    rescue ReleaseEscrow::ServiceError => e
+      flash[:error] = e.message
+      routing.redirect "/projects/#{project_id}"
+    end
+
     def handle_bid_submission(routing, project_id)
       require_login!(routing)
 
       unless valid_uuid?(project_id)
         flash.now[:error] = 'Invalid project ID format'
         response.status = 404
-        return view :project_detail, locals: {
-          project: nil,
-          current_account: @current_account,
-          is_owner: false
-        }
+        return view :project_detail, locals: project_detail_locals(project_id).merge(project: nil, is_owner: false)
       end
 
       unless @current_account['token']
         flash.now[:error] =
           'You must be verified to submit bids. Please complete the registration verification.'
         response.status = 403
-        return view :project_detail, locals: {
-          project: FetchProjectDetail.new(App.config).call(project_id),
-          current_account: @current_account,
-          is_owner: false
-        }
+        return view :project_detail, locals: project_detail_locals(project_id)
       end
 
       # Validate
@@ -599,9 +701,7 @@ module SecureBiddingApp
       if validation.failure?
         flash.now[:error] = validation.errors.to_h.map { |k, v| "#{k} #{v.join(', ')}" }.join('; ')
         response.status = 400
-        project = FetchProjectDetail.new(App.config).call(project_id)
-        return view :project_detail,
-             locals: { project: project, current_account: @current_account, is_owner: false }
+        return view :project_detail, locals: project_detail_locals(project_id)
       end
 
       validated = validation.to_h
@@ -620,21 +720,15 @@ module SecureBiddingApp
     rescue SubmitBid::ValidationError => e
       flash.now[:error] = e.message
       response.status = 400
-      project = FetchProjectDetail.new(App.config).call(project_id)
-      view :project_detail,
-           locals: { project: project, current_account: @current_account, is_owner: false }
+      view :project_detail, locals: project_detail_locals(project_id)
     rescue SubmitBid::AuthorizationError => e
       flash.now[:error] = e.message
       response.status = 403
-      project = FetchProjectDetail.new(App.config).call(project_id)
-      view :project_detail,
-           locals: { project: project, current_account: @current_account, is_owner: false }
+      view :project_detail, locals: project_detail_locals(project_id)
     rescue ApiClient::ApiError => e
       flash.now[:error] = api_error_message(e, 'Failed to submit bid')
       response.status = e.status.to_i
-      project = FetchProjectDetail.new(App.config).call(project_id)
-      view :project_detail,
-           locals: { project: project, current_account: @current_account, is_owner: false }
+      view :project_detail, locals: project_detail_locals(project_id)
     end
 
     def handle_registration_post(routing)
@@ -736,17 +830,14 @@ module SecureBiddingApp
     end
 
     def handle_admin_edit_project_get(_routing, project_id)
-      unless admin?(@current_account)
+      locals = project_detail_locals(project_id)
+      project = locals[:project]
+      unless project && allowed?(project, 'edit')
         response.status = 403
-        flash.now[:error] = 'Only admins can edit projects'
-        return view :project_detail, locals: {
-          project: FetchProjectDetail.new(App.config).call(project_id),
-          current_account: @current_account,
-          is_owner: false
-        }
+        flash.now[:error] = 'You are not allowed to edit this project'
+        return view :project_detail, locals: locals
       end
 
-      project = FetchProjectDetail.new(App.config).call(project_id)
       view :project_edit, locals: { project: project, current_account: @current_account }
     rescue FetchProjectDetail::NotFoundError
       response.status = 404
@@ -759,15 +850,11 @@ module SecureBiddingApp
     end
 
     def handle_admin_edit_project_post(routing, project_id)
-      unless admin?(@current_account)
+      locals = project_detail_locals(project_id)
+      unless locals[:project] && allowed?(locals[:project], 'edit')
         response.status = 403
-        flash.now[:error] = 'Only admins can edit projects'
-        project = FetchProjectDetail.new(App.config).call(project_id)
-        return view :project_detail, locals: {
-          project: project,
-          current_account: @current_account,
-          is_owner: false
-        }
+        flash.now[:error] = 'You are not allowed to edit this project'
+        return view :project_detail, locals: locals
       end
 
       # Validate
@@ -780,7 +867,7 @@ module SecureBiddingApp
       if validation.failure?
         flash.now[:error] = validation.errors.to_h.map { |k, v| "#{k} #{v.join(', ')}" }.join('; ')
         response.status = 400
-        project = FetchProjectDetail.new(App.config).call(project_id)
+        project = project_detail_locals(project_id)[:project]
         return view :project_edit, locals: { project: project, current_account: @current_account }
       end
 
@@ -799,19 +886,19 @@ module SecureBiddingApp
     rescue UpdateProject::ValidationError => e
       flash.now[:error] = e.message
       response.status = 400
-      project = FetchProjectDetail.new(App.config).call(project_id)
+      project = project_detail_locals(project_id)[:project]
       view :project_edit, locals: { project: project, current_account: @current_account }
     rescue ApiClient::ApiError => e
       flash.now[:error] = api_error_message(e, 'Failed to update project')
       response.status = e.status.to_i
-      project = FetchProjectDetail.new(App.config).call(project_id)
+      project = project_detail_locals(project_id)[:project]
       view :project_edit, locals: { project: project, current_account: @current_account }
     end
 
     def handle_admin_delete_project(routing, project_id)
-      unless admin?(@current_account)
-        response.status = 403
-        flash[:error] = 'Only admins can delete projects'
+      locals = project_detail_locals(project_id)
+      unless locals[:project] && allowed?(locals[:project], 'delete')
+        flash[:error] = 'You are not allowed to delete this project'
         return routing.redirect "/projects/#{project_id}"
       end
 
@@ -829,7 +916,7 @@ module SecureBiddingApp
     end
 
     def handle_admin_users_list(routing)
-      unless admin?(@current_account)
+      unless can_manage_accounts?(@current_account)
         response.status = 403
         flash.now[:error] = 'Only admins can view users'
         return routing.redirect '/'
@@ -844,7 +931,7 @@ module SecureBiddingApp
     end
 
     def handle_admin_view_user(routing, user_id)
-      unless admin?(@current_account)
+      unless can_manage_accounts?(@current_account)
         response.status = 403
         flash.now[:error] = 'Only admins can view users'
         return routing.redirect '/'
@@ -863,7 +950,7 @@ module SecureBiddingApp
     end
 
     def handle_admin_new_user_form(routing)
-      unless admin?(@current_account)
+      unless can_manage_accounts?(@current_account)
         response.status = 403
         flash.now[:error] = 'Only admins can create users'
         return routing.redirect '/'
@@ -874,7 +961,7 @@ module SecureBiddingApp
     end
 
     def handle_admin_create_user(routing)
-      unless admin?(@current_account)
+      unless can_manage_accounts?(@current_account)
         response.status = 403
         flash.now[:error] = 'Only admins can create users'
         return routing.redirect '/'
@@ -920,7 +1007,7 @@ module SecureBiddingApp
     end
 
     def handle_admin_edit_user_get(routing, user_id)
-      unless admin?(@current_account)
+      unless can_manage_accounts?(@current_account)
         response.status = 403
         flash.now[:error] = 'Only admins can edit users'
         return routing.redirect '/'
@@ -940,7 +1027,7 @@ module SecureBiddingApp
     end
 
     def handle_admin_edit_user_post(routing, user_id)
-      unless admin?(@current_account)
+      unless can_manage_accounts?(@current_account)
         response.status = 403
         flash.now[:error] = 'Only admins can edit users'
         return routing.redirect '/'
@@ -983,7 +1070,7 @@ module SecureBiddingApp
     end
 
     def handle_admin_delete_user(routing, user_id)
-      unless admin?(@current_account)
+      unless can_manage_accounts?(@current_account)
         response.status = 403
         flash[:error] = 'Only admins can delete users'
         return routing.redirect '/'
@@ -1003,7 +1090,7 @@ module SecureBiddingApp
     end
 
     def handle_admin_user_roles_get(routing, user_id)
-      unless admin?(@current_account)
+      unless can_manage_accounts?(@current_account)
         response.status = 403
         flash.now[:error] = 'Only admins can manage roles'
         return routing.redirect '/'
@@ -1028,7 +1115,7 @@ module SecureBiddingApp
     end
 
     def handle_admin_user_roles_post(routing, user_id)
-      unless admin?(@current_account)
+      unless can_manage_accounts?(@current_account)
         response.status = 403
         flash[:error] = 'Only admins can manage roles'
         return routing.redirect '/'

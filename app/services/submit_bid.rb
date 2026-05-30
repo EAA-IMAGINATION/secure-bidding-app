@@ -13,15 +13,13 @@ module SecureBiddingApp
 
     def call(project_id:, bidder_account_id:, contractor_alias:, encrypted_bid_amount:, encrypted_proposal_text:, auth_token:)
       validate_params(bidder_account_id, contractor_alias, encrypted_bid_amount, encrypted_proposal_text)
+      encrypted_bid = parse_encrypted_payload(encrypted_bid_amount, 'encrypted bid amount')
+      encrypted_proposal = parse_encrypted_payload(encrypted_proposal_text, 'encrypted proposal text')
 
       client = ApiClient.new(
         @config.API_URL,
         default_headers: { 'Authorization' => "Bearer #{auth_token}" }
       )
-
-      # Parse encrypted JSON strings
-      encrypted_bid = JSON.parse(encrypted_bid_amount)
-      encrypted_proposal = JSON.parse(encrypted_proposal_text)
 
       body = {
         bidder_account_id: bidder_account_id,
@@ -44,6 +42,14 @@ module SecureBiddingApp
     end
 
     private
+
+    def parse_encrypted_payload(value, label)
+      return value if value.is_a?(Hash)
+
+      JSON.parse(value.to_s)
+    rescue JSON::ParserError
+      raise ValidationError, "Invalid #{label} payload"
+    end
 
     def validate_params(bidder_account_id, contractor_alias, encrypted_bid_amount, encrypted_proposal_text)
       raise ValidationError, 'Bidder account ID is required' if bidder_account_id.to_s.strip.empty?

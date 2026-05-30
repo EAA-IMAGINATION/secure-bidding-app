@@ -70,6 +70,20 @@ module SecureBiddingApp
       @data['system_role'] == 'admin' || system_roles.any? { |r| r == 'admin' || r == 'system_admin' }
     end
 
+    def can_create_projects?
+      caps = capabilities
+      return caps['can_create_projects'] if caps.key?('can_create_projects')
+
+      !admin?
+    end
+
+    def can_manage_accounts?
+      caps = capabilities
+      return caps['can_manage_accounts'] if caps.key?('can_manage_accounts')
+
+      admin?
+    end
+
     # Allow existing code that expects a token in the account hash
     def token
       @data['token'] || @auth_token

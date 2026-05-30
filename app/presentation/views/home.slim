@@ -5,7 +5,7 @@ div class="row justify-content-center mt-4"
         p class="text-uppercase text-primary fw-semibold mb-2" Signed in
         h1 class="display-6 mb-3" Welcome back, #{current_account['username']}!
         div class="mb-4"
-          - unless admin?(current_account)
+          - if !current_account || can_create_projects?(current_account)
             a href="/projects/new" class="btn btn-primary" Create New Project
           a href="/account/#{current_account['username']}" class="btn btn-outline-primary" View your account
       - else

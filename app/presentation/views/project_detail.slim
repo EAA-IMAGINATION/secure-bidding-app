@@ -22,15 +22,15 @@ div class="row justify-content-center mt-4"
             |
             = Time.parse(project['bidding_deadline']).strftime('%Y-%m-%d %H:%M UTC') rescue project['bidding_deadline']
 
-        - if project && (project['policy'].nil? ? (current_account && admin?(current_account)) : (allowed?(project, 'edit') || allowed?(project, 'delete')))
+        - if project && (allowed?(project, 'edit') || allowed?(project, 'delete'))
           div class="d-flex gap-2 mt-4"
-            - if project && (project['policy'].nil? ? (current_account && admin?(current_account)) : allowed?(project, 'edit'))
+            - if project && allowed?(project, 'edit')
               a href="/projects/#{project['id']}/edit" class="btn btn-warning" Edit Project
-            - if project && (project['policy'].nil? ? (current_account && admin?(current_account)) : allowed?(project, 'delete'))
+            - if project && allowed?(project, 'delete')
               form method="post" action="/projects/#{project['id']}/delete" class="d-inline"
                 button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this project?');" Delete Project
 
-        - if project && (project['policy'].nil? ? (current_account && admin?(current_account)) : (allowed?(project, 'is_owner') || (current_account && admin?(current_account))))
+        - if project && allowed?(project, 'manage_owners')
           div class="card mt-3"
             div class="card-body"
               h5 class="card-title" Manage Owners
@@ -43,42 +43,58 @@ div class="row justify-content-center mt-4"
                   button type="submit" class="btn btn-primary" Add Co-owner
 
     / Milestone & Escrow Status Section (SEC-FT-06)
-    - if project && project['state'] == 'published'
+    - if project && project['state'] == 'published' && allowed?(project, 'manage_milestones')
       div class="card mb-4 border-info"
         div class="card-body"
           h5 class="card-title mb-3" Project Milestones & Escrow
 
-          div class="row"
-            div class="col-md-6"
-              div class="card border-light"
-                div class="card-body"
-                  h6 class="card-subtitle mb-2 text-muted" Milestone Status
-                  
-                  / Placeholder: Will show milestones when backend API is extended
-                  div class="alert alert-info alert-sm mb-0"
-                    small
-                      | <strong>Milestones:</strong> Not yet available
-                      br
-                      | Milestone tracking will be enabled after bidding closes.
+          - if project['milestones'] && project['milestones'].any?
+            table class="table table-sm align-middle"
+              thead
+                tr
+                  th Order
+                  th Title
+                  th Budget
+                  th State
+                  th Escrow
+              tbody
+                - project['milestones'].each do |milestone|
+                  tr
+                    td = milestone['sequence_order']
+                    td = milestone['title']
+                    td = number_to_currency((milestone['budget_cents'] || 0) / 100.0)
+                    td
+                      span class="badge bg-secondary" = milestone['state']
+                    td
+                      - if milestone['policy'] && milestone['policy']['fund_escrow'] && milestone['state'] == 'pending_funding'
+                        form method="post" action="/projects/#{project['id']}/escrow/fund" class="d-inline"
+                          input type="hidden" name="milestone_id" value=milestone['id']
+                          button type="submit" class="btn btn-sm btn-success" Fund Escrow
+                      - elsif milestone['policy'] && milestone['policy']['release_escrow'] && milestone['state'] == 'funded_escrow'
+                        form method="post" action="/projects/#{project['id']}/escrow/release" class="d-inline"
+                          input type="hidden" name="milestone_id" value=milestone['id']
+                          button type="submit" class="btn btn-sm btn-primary" Release Funds
+                      - else
+                        span class="text-muted" —
+          - else
+            p class="text-muted mb-3" No milestones yet. Add one to split the project budget into escrow-funded phases.
 
-            div class="col-md-6"
-              div class="card border-light"
-                div class="card-body"
-                  h6 class="card-subtitle mb-2 text-muted" Escrow & Payments
-                  
-                  / Placeholder: Will show payment states when backend API is extended
-                  div class="alert alert-info alert-sm mb-0"
-                    small
-                      | <strong>Payment Status:</strong> Awaiting milestone completion
-                      br
-                      | Payments locked until contractor deliverables verified.
+          form method="post" action="/projects/#{project['id']}/milestones" class="row g-2 mb-0"
+            div class="col-md-4"
+              input type="text" name="title" class="form-control form-control-sm" placeholder="Milestone title" required=true
+            div class="col-md-3"
+              input type="number" name="budget_cents" class="form-control form-control-sm" placeholder="Budget (cents)" min="0" required=true
+            div class="col-md-3"
+              input type="text" name="description" class="form-control form-control-sm" placeholder="Description (optional)"
+            div class="col-md-2"
+              button type="submit" class="btn btn-sm btn-outline-primary w-100" Add Milestone
 
-    - if project && project['state'] == 'published' && (project['policy'].nil? ? current_account : (current_account && (allowed?(project, 'create_bid') || allowed?(project, 'submit_bid'))))
+    - if project && project['state'] == 'published' && current_account && allowed?(project, 'submit_bid')
       div class="card"
         div class="card-body"
           h5 class="card-title" Submit a Bid
 
-          - if is_owner || (project && (project['policy'].nil? ? false : allowed?(project, 'is_owner')))
+          - if is_owner || (project && allowed?(project, 'manage_owners'))
             div class="alert alert-warning" You are the project owner and cannot bid on your own project.
           - else
             - if project && project['nacl_public_key']
@@ -168,11 +184,10 @@ div class="row justify-content-center mt-4"
               div id="countdown-timer" class="mb-3"
                 | (Initializing countdown...)
 
-              - if project['bid_count'] || project['bids_count'] || project['bid_submissions_count']
+              - if allowed?(project, 'view_bid_count') && !project['bid_count'].nil?
                 div class="alert alert-info"
                   | Total bids received:
-                  strong
-                    = (project['bid_count'] || project['bids_count'] || project['bid_submissions_count']).to_i
+                  strong = project['bid_count'].to_i
 
               div id="integrity-badge" class="mt-3"
                 | (Checking integrity...)
