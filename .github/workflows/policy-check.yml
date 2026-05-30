@@ -15,6 +15,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          echo "Event: $GITHUB_EVENT_NAME"
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
           else
