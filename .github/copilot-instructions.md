@@ -1,23 +1,38 @@
 # Copilot Instructions: Secure Bidding App
 
-## Hard Rules (read first)
+> **#1 RULE — COMMIT AUTHORSHIP**
+> Never add `Co-authored-by` trailers for Copilot, Cursor, or any AI tool.
+> CI rejects them. The developer is the sole author and runs `git commit`.
+> Read `.github/skills/commit-authorship.md` before every commit.
 
-1. **Weekly scope** — Implement only what the current week requires. See
-   `.github/weekly-specifications/week-N.md` and
-   `.github/skills/weekly-scope-gating.md`.
-2. **Commit authorship** — Never add AI co-author trailers. Developer runs the
-   final commit. See `.github/skills/commit-authorship.md`.
+## How Copilot, skills, hooks, and CI relate
+
+| Layer | What it does | When it runs |
+| --- | --- | --- |
+| **This file** | Copilot reads it automatically in this repo | Every Copilot session |
+| **Skills** (`.github/skills/`) | Playbooks Copilot reads when pointed to them | When a task matches the trigger |
+| **Git hooks** (`.githooks/`) | Block default-branch commits; strip AI trailers | Every local commit after hook setup |
+| **GitHub Actions** (`policy-check.yml`) | Fail PR/push if AI trailers exist in commit history | Every push and PR |
+
+Copilot does **not** automatically read every skill file — it follows this index.
+Workflows do **not** instruct Copilot; they **enforce** rules after push.
+Hooks only work locally after: `git config core.hooksPath .githooks`
+
+## Hard Rules
+
+1. **Commit authorship** — See skill: [commit-authorship](.github/skills/commit-authorship.md)
+2. **Weekly scope** — See [weekly-scope-gating](.github/skills/weekly-scope-gating.md) and
+   `.github/weekly-specifications/week-N.md`
 3. **Feature branches** — Never edit on `main`/`master`. See
-   `.github/skills/feature-branch-workflow.md`.
-4. **Test-first** — Write a failing test before implementation code. See
-   `.github/skills/tdd-mastery.md`.
+   [feature-branch-workflow](.github/skills/feature-branch-workflow.md)
+4. **Test-first** — See [tdd-mastery](.github/skills/tdd-mastery.md)
 
 ## Skill Index
 
 | Priority | Trigger | Skill |
 | --- | --- | --- |
+| **#1** | Before every commit | [commit-authorship](.github/skills/commit-authorship.md) |
 | Required | Every task start | [weekly-scope-gating](.github/skills/weekly-scope-gating.md) |
-| Required | Before commits | [commit-authorship](.github/skills/commit-authorship.md) |
 | Required | New feature start | [feature-branch-workflow](.github/skills/feature-branch-workflow.md) |
 | Required | Behavior changes | [tdd-mastery](.github/skills/tdd-mastery.md) |
 | High | Routes, services, views | [controller-service-view](.github/skills/controller-service-view.md) |
@@ -30,8 +45,6 @@
 
 ### Future capability (reference only)
 
-Use only when the weekly spec explicitly requires them:
-
 - `.github/skills/encryption-ui.md`
 - `.github/skills/role-based-authorization.md`
 - `.github/skills/payment-flow.md`
@@ -40,34 +53,14 @@ Use only when the weekly spec explicitly requires them:
 ## Commands
 
 ```bash
-bundle install
-bundle exec rackup -p 9292          # Dev server (localhost:9292)
-bundle exec rake spec               # Tests
-npx markdownlint-cli2 "**/*.md" "#node_modules"   # After .md edits
+git config core.hooksPath .githooks    # Run once per clone
+bundle exec rackup -p 9292
+bundle exec rake spec
+npx markdownlint-cli2 "**/*.md" "#node_modules"
 ```
-
-## Backend API
-
-REST API at `http://localhost:3001/api/v1` (see secure-bidding-api repo).
-
-Key resources: accounts, projects, bid_submissions, payments, memberships.
 
 ## Architecture (reference)
 
-Server-rendered Roda + Slim app — thin presentation layer over the API.
-
-| Layer | Location | Role |
-| --- | --- | --- |
-| Controllers | `app/controllers/` | Routes, session, render/redirect |
-| Services | `app/services/` | Business logic and API calls via `ApiClient` |
-| Views | `app/presentation/views/` | Slim templates and partials |
-| Config | `config/environments.rb` | Session secret, API URL |
-
-**Stack:** roda, slim, rack-session, http, figaro, puma; test with rack-test +
-minitest.
-
-**Secrets:** copy `config/secrets.example.yml` → `config/secrets.yml`; never
-commit real secrets.
-
-**Reference:** https://github.com/ISS-Security/tyto2026-app (architectural guide
-only — do not exceed current week scope).
+Server-rendered Roda + Slim over API at `http://localhost:3001/api/v1`.
+Controllers in `app/controllers/`, services in `app/services/`, views in
+`app/presentation/views/`.
