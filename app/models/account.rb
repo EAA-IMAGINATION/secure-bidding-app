@@ -74,7 +74,15 @@ module SecureBiddingApp
       caps = capabilities
       return caps['can_create_projects'] if caps.key?('can_create_projects')
 
-      !admin?
+      !admin? && email_verified?
+    end
+
+    def email_verified?
+      value = @data['email_verified']
+      return true if value == true || value.to_s == 'true'
+      return false if value == false || value.to_s == 'false'
+
+      !@data['email_verified_at'].to_s.strip.empty?
     end
 
     def can_manage_accounts?

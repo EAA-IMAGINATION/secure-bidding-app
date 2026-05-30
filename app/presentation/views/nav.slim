@@ -10,8 +10,9 @@ nav.navbar.navbar-expand-lg.navbar-dark.bg-primary.shadow-sm role="navigation"
         - if @current_account
           li.nav-item
             a.nav-link href="/" Home
-          li.nav-item
-            a.nav-link href="/projects/my" Projects
+          - if account_email_verified?(@current_account)
+            li.nav-item
+              a.nav-link href="/projects/my" Projects
           - if can_manage_accounts?(@current_account)
             li.nav-item
               a.nav-link href="/admin/users" Admin Users

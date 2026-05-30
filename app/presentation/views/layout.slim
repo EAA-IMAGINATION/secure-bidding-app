@@ -25,4 +25,11 @@ html
     div class='container' id='html_body'
       section
         == render :flash_bar
+        - if @current_account && !account_email_verified?(@current_account)
+          div class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3" role="alert"
+            div
+              strong Verify your email to unlock bidding and project management.
+              span class="d-block small text-muted" You can browse published projects until verification is complete.
+            form method="post" action="/account/#{@current_account['username']}/resend_verification" class="mb-0"
+              button type="submit" class="btn btn-sm btn-primary" Resend verification email
         == yield
