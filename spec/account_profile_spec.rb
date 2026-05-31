@@ -53,6 +53,15 @@ describe 'Account profile flow' do
       )
   end
 
+  def stub_published_projects
+    stub_request(:get, "#{base_url}/projects")
+      .to_return(
+        status: 200,
+        body: { projects: [] }.to_json,
+        headers: { 'Content-Type' => 'application/json' }
+      )
+  end
+
   it 'shows the profile verification state and edit entry points' do
     login_as
     stub_profile_get
@@ -62,7 +71,118 @@ describe 'Account profile flow' do
     _(last_response.status).must_equal 200
     _(last_response.body).must_include 'Verified'
     _(last_response.body).must_include 'Edit profile'
-    _(last_response.body).must_include 'Resend verification'
+    _(last_response.body).wont_include 'Resend verification'
+  end
+
+  it 'hides the verification banner when the session is stale but the API says verified' do
+    login_as(email_verified: false)
+    stub_profile_get(email_verified: true)
+    stub_published_projects
+
+    get '/'
+
+    _(last_response.status).must_equal 200
+    _(last_response.body).wont_include 'Verify your email to unlock bidding and project management.'
+  end
+
+  it 'hides the verification banner for admin accounts even when email_verified is missing from session' do
+    stub_request(:post, "#{base_url}/auth/authenticate")
+      .with(body: hash_including(username: account_username, password: 'current-pass'))
+      .to_return(
+        status: 200,
+        body: {
+          id: account_id,
+          username: account_username,
+          email: account_email,
+          system_role: 'admin',
+          system_roles: [],
+          token: token
+        }.to_json,
+        headers: { 'Content-Type' => 'application/json' }
+      )
+
+    post '/auth/login', username: account_username, password: 'current-pass'
+    _(last_response.status).must_equal 302
+    stub_profile_get(email_verified: true)
+    stub_published_projects
+
+    get '/'
+
+    _(last_response.status).must_equal 200
+    _(last_response.body).wont_include 'Verify your email to unlock bidding and project management.'
+  end
+
+  it 'redirects home without the banner after resend when the account is already verified' do
+    login_as(email_verified: false)
+    stub_profile_get(email_verified: true)
+    stub_published_projects
+
+    post '/account/demo-user/resend_verification'
+
+    _(last_response.status).must_equal 302
+    follow_redirect!
+
+    _(last_response.status).must_equal 200
+    _(last_response.body).wont_include 'Verify your email to unlock bidding and project management.'
+    _(last_response.body).must_include 'Your email is already verified'
+  end
+
+  it 'shows an inline resend button beside the unverified badge on the profile page' do
+    login_as(email_verified: false)
+    stub_profile_get(email_verified: false)
+
+    get '/account/demo-user'
+
+    _(last_response.status).must_equal 200
+    _(last_response.body).must_include 'Unverified'
+    _(last_response.body).must_include 'Send verification email'
+  end
+
+  it 'clears the banner after confirming email verification from the link while logged in' do
+    login_as(email_verified: false)
+    stub_profile_get(email_verified: false)
+    stub_published_projects
+
+    stub_request(:post, "#{base_url}/auth/verification-preview")
+      .with(body: hash_including('registration_token' => 'verify-token'))
+      .to_return(
+        status: 200,
+        body: {
+          purpose: 'email_verification',
+          username: account_username,
+          email: account_email
+        }.to_json,
+        headers: { 'Content-Type' => 'application/json' }
+      )
+
+    get '/verify-email?token=verify-token'
+
+    _(last_response.status).must_equal 200
+    _(last_response.body).must_include 'Confirm email address'
+
+    stub_request(:post, "#{base_url}/auth/verify")
+      .with(body: hash_including('registration_token' => 'verify-token'))
+      .to_return(
+        status: 200,
+        body: {
+          id: account_id,
+          username: account_username,
+          email: account_email,
+          email_verified: true,
+          status: 'verified'
+        }.to_json,
+        headers: { 'Content-Type' => 'application/json' }
+      )
+
+    post '/verify-email', registration_token: 'verify-token', verification_purpose: 'email_verification'
+
+    _(last_response.status).must_equal 302
+    stub_profile_get(email_verified: true)
+    follow_redirect!
+
+    _(last_response.status).must_equal 200
+    _(last_response.body).wont_include 'Verify your email to unlock bidding and project management.'
+    _(last_response.body).must_include 'Your email has been verified'
   end
 
   it 'renders the edit form' do
@@ -208,6 +328,6 @@ describe 'Account profile flow' do
 
     _(last_response.status).must_equal 302
     follow_redirect!
-    _(last_response.body).must_include 'Verification email sent'
+    _(last_response.body).must_include 'Verification email sent — open the link in your inbox'
   end
 end

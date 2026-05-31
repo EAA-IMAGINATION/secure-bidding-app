@@ -2,17 +2,38 @@
 
 require 'json'
 require 'roda'
+require 'uri'
+require 'securerandom'
 require_relative 'app'
 
 module SecureBiddingApp
-  # Web controller for authentication
   class App < Roda
+    def google_oauth_url(config, state)
+      query = URI.encode_www_form(
+        client_id: config.GOOGLE_CLIENT_ID,
+        redirect_uri: config.GOOGLE_REDIRECT_URI,
+        response_type: 'code',
+        scope: config.GOOGLE_SCOPE,
+        state: state
+      )
+      "#{config.GOOGLE_OAUTH_URL}?#{query}"
+    end
+
+    def sso_login_url(session)
+      state = (session['sso_state'] ||= SecureRandom.hex(16))
+      google_oauth_url(App.config, state)
+    end
+
     route('auth') do |routing|
       @login_route = '/auth/login'
 
       routing.is 'login' do
-        routing.get { view :login }
+        routing.get { view :login, locals: { google_oauth_url: sso_login_url(session) } }
         routing.post { handle_login_post(routing) }
+      end
+
+      routing.is 'sso_callback' do
+        routing.get { handle_sso_callback(routing) }
       end
 
       routing.is 'reset-password' do
@@ -84,7 +105,30 @@ module SecureBiddingApp
 
       flash.now[:error] = message || 'Username and password did not match our records'
       response.status = status
-      view :login
+      view :login, locals: { google_oauth_url: sso_login_url(session) }
+    end
+
+    def handle_sso_callback(routing)
+      expected = session.delete('sso_state')
+      unless expected && routing.params['state'] == expected
+        flash[:error] = 'Sign-in session expired or could not be verified — please try again'
+        return routing.redirect '/auth/login'
+      end
+
+      authorized = AuthorizeGoogleAccount.new(App.config).call(routing.params['code'])
+      account = authorized[:account].merge('token' => authorized[:auth_token])
+      @current_session.store_current_account(account)
+      flash[:notice] = "Welcome #{account['username']}!"
+      routing.redirect '/'
+    rescue AuthorizeGoogleAccount::UnauthorizedError
+      flash[:error] = 'Could not sign in with Google'
+      response.status = 403
+      routing.redirect '/auth/login'
+    rescue StandardError => e
+      App.logger.error "SSO LOGIN ERROR: #{e.inspect}"
+      flash[:error] = 'Unexpected error during Google sign-in'
+      response.status = 500
+      routing.redirect '/auth/login'
     end
 
     def handle_reset_password_post(routing)

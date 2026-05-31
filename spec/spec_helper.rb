@@ -29,7 +29,9 @@ ResetAccountPassword = SecureBiddingApp::ResetAccountPassword
 ResendAccountVerification = SecureBiddingApp::ResendAccountVerification
 UpdateAccount = SecureBiddingApp::UpdateAccount
 SubmitBid = SecureBiddingApp::SubmitBid
-VerifyRegistration = SecureBiddingApp::VerifyRegistration
+VerifyRegistration = SecureBiddingApp::CompleteVerification
+CompleteVerification = SecureBiddingApp::CompleteVerification
+FetchVerificationPreview = SecureBiddingApp::FetchVerificationPreview
 
 module TestHelpers
   include Rack::Test::Methods

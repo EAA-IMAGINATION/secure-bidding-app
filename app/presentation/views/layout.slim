@@ -29,7 +29,7 @@ html
           div class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3" role="alert"
             div
               strong Verify your email to unlock bidding and project management.
-              span class="d-block small text-muted" You can browse published projects until verification is complete.
+              span class="d-block small text-muted" You can browse published projects until you verify via the email link.
             form method="post" action="/account/#{@current_account['username']}/resend_verification" class="mb-0"
-              button type="submit" class="btn btn-sm btn-primary" Resend verification email
+              button type="submit" class="btn btn-sm btn-primary" Send verification email
         == yield
