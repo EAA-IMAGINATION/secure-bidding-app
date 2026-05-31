@@ -1,5 +1,8 @@
 - account ||= @current_account
-- system_roles = (account&.dig('include', 'system_roles') || account&.dig('system_roles') || []).sort
+- assigned_roles = (account&.dig('include', 'system_roles') || account&.dig('system_roles') || []).dup
+- column_role = account&.dig('system_role')
+- assigned_roles << column_role if column_role && !assigned_roles.include?(column_role)
+- system_roles = assigned_roles.sort.uniq
 - verified = account_email_verified?(account)
 
 div class="row justify-content-center mt-4"
@@ -23,8 +26,11 @@ div class="row justify-content-center mt-4"
             - if verified
               span class="badge bg-success" Verified
             - else
-              span class="badge bg-warning text-dark" Unverified
-              p class="text-muted small mb-0 mt-2" Verification email sent — please check your inbox.
+              div class="d-flex align-items-center flex-wrap gap-2"
+                span class="badge bg-warning text-dark" Unverified
+                form method="post" action="/account/#{account['username']}/resend_verification" class="mb-0"
+                  button type="submit" class="btn btn-sm btn-outline-primary" Send verification email
+              p class="text-muted small mb-0 mt-2" Open the link in your email to verify this address.
 
           dt class="col-sm-3 text-muted" System roles
           dd class="col-sm-9 mb-0"
@@ -38,7 +44,17 @@ div class="row justify-content-center mt-4"
         div class="d-flex flex-wrap gap-2 mt-4"
           a href="/" class="btn btn-outline-secondary" Back to home
           a href="/account/#{account['username']}/edit" class="btn btn-primary" Edit profile
-          - unless verified
-            form method="post" action="/account/#{account['username']}/resend_verification" class="d-inline"
-              button type="submit" class="btn btn-outline-primary" Resend verification
           a href="/auth/logout" class="btn btn-danger" Logout
+
+        - if api_key
+          div class="row top-buffer mt-4"
+            div class="col-sm-12"
+              h3 API Access
+              p class="text-muted mb-2"
+                | Read-only API key (valid for one month). Use this from the command line for read-only access.
+              a class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" href="#api_key" role="button" aria-expanded="false" aria-controls="api_key"
+                | Show key
+              div id="api_key" class="collapse mt-2"
+                div class="card card-body"
+                  pre class="text-wrap mb-0"
+                    = api_key

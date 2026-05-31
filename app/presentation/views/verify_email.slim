@@ -1,0 +1,43 @@
+- registration_username = @registration_username
+- registration_email = @registration_email
+- is_registration = @verification_purpose == 'registration'
+
+h1 class="text-center mb-4"
+  = is_registration ? 'Finish creating your account' : 'Verify your email'
+
+div class="row justify-content-center"
+  div class="col-md-7 col-lg-6"
+    div class="card shadow-sm"
+      div class="card-body p-4 p-md-5"
+        p class="text-muted mb-4"
+          - if is_registration
+            | The link confirmed you control this email address. Set a password to complete registration.
+          - else
+            | The link confirmed you control this email address. Confirm below to verify this address and unlock bidding and project management.
+
+        form method="post" action="/verify-email" id="form-verify-email"
+          input type="hidden" name="registration_token" value=@verification_token
+          input type="hidden" name="verification_purpose" value=@verification_purpose
+
+          div class="mb-3"
+            label.form-label for="input-verify-username" Username
+            input#input-verify-username.form-control type="text" value=registration_username readonly="readonly"
+
+          div class="mb-3"
+            label.form-label for="input-verify-email" Email
+            input#input-verify-email.form-control type="email" value=registration_email readonly="readonly"
+
+          - if is_registration
+            div class="mb-4"
+              label.form-label for="input-verify-password" Password
+              input#input-verify-password.form-control type="password" name="password" placeholder="Create a password" required="required"
+
+            div class="mb-4"
+              label.form-label for="input-verify-password-confirm" Confirm password
+              input#input-verify-password-confirm.form-control type="password" name="password_confirm" placeholder="Confirm your password" required="required"
+
+          button.btn.btn-primary.btn-lg.w-100 type="submit"
+            = is_registration ? 'Create account' : 'Confirm email address'
+
+        p class="text-muted small mt-3 mb-0"
+          | If you did not request this, you can ignore this page.

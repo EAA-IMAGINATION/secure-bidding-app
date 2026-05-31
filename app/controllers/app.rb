@@ -36,6 +36,9 @@ module SecureBiddingApp
 
       routing.public
       routing.assets
+
+      @current_account = sync_current_account_from_api(@current_account)
+
       routing.multi_route
 
       # GET /
@@ -45,11 +48,15 @@ module SecureBiddingApp
       end
     end
 
+    route('verify-email') do |routing|
+      routing.get { handle_verification_get(routing) }
+      routing.post { handle_verification_post(routing) }
+    end
+
     route('register') do |routing|
       routing.on 'verify' do
         routing.on String do |token|
-          routing.get { handle_registration_verify_get(routing, token) }
-          routing.post { handle_registration_verify_post(routing, token) }
+          routing.get { routing.redirect "/verify-email?token=#{Rack::Utils.escape_path(token)}" }
         end
       end
 
@@ -64,10 +71,14 @@ module SecureBiddingApp
       routing.on String do |username|
         routing.get do
           require_login!(routing)
-          account = load_profile_account
-          return routing.redirect("/account/#{account['username']}") if account['username'] != username
+          return routing.redirect("/account/#{@current_account['username']}") if @current_account['username'] != username
 
-          view :account, locals: { account: account, current_account: @current_account }
+          profile = FetchAccountByUsername.new(App.config).call(
+            username: username,
+            auth_token: get_auth_token
+          )
+          api_key = profile['api_key']
+          view :account, locals: { account: profile, current_account: @current_account, api_key: api_key }
         rescue ApiClient::ApiError => e
           response.status = e.status.to_i
           flash.now[:error] = api_error_message(e, 'Unable to load your account')
@@ -294,21 +305,142 @@ module SecureBiddingApp
     end
 
     def load_profile_account
-      fetched = FetchAccount.new(App.config).call(user_id: @current_account['id'], auth_token: get_auth_token)
+      apply_account_to_session!(merge_profile_account(@current_account, get_auth_token))
+    end
 
-      # Normalize to hashes for safe merging, then wrap back into Account model
-      base_hash = @current_account.respond_to?(:to_h) ? @current_account.to_h : (@current_account || {})
-      fetched_hash = fetched.respond_to?(:to_h) ? fetched.to_h : (fetched || {})
+    def sync_current_account_from_api(account)
+      return nil unless account
 
-      merged = base_hash.merge(fetched_hash)
-      token = get_auth_token
+      token = account['token'] || account[:token] || get_auth_token
+      return account if token.to_s.strip.empty?
+
+      apply_account_to_session!(merge_profile_account(account, token))
+    rescue ApiClient::ApiError
+      account
+    end
+
+    def merge_profile_account(base_account, token)
+      fetched = FetchAccount.new(App.config).call(user_id: base_account['id'], auth_token: token)
+      merged = account_data_hash(base_account).merge(account_data_hash(fetched))
       merged['token'] = token unless token.to_s.strip.empty?
 
       Account.from_hash(merged, token)
     end
 
+    def account_data_hash(account)
+      hash = if account.respond_to?(:to_h)
+               account.to_h
+             else
+               account || {}
+             end
+      hash.transform_keys(&:to_s).dup
+    end
+
+    def apply_account_to_session!(account)
+      @current_session.store_current_account(account)
+      @current_account = account
+      account
+    end
+
+    def apply_verification_to_session!(verification_result)
+      return unless @current_account
+      return unless verification_result['id'] == @current_account['id']
+
+      token = get_auth_token
+      merged = account_data_hash(@current_account).merge(account_data_hash(verification_result))
+      merged['email_verified'] = true
+      merged['token'] = token unless token.to_s.strip.empty?
+
+      apply_account_to_session!(Account.from_hash(merged, token))
+    end
+
+    def handle_verification_get(routing)
+      token = routing.params['token'].to_s.strip
+      if token.empty?
+        flash[:error] = 'Verification link is invalid'
+        return routing.redirect '/'
+      end
+
+      load_verification_locals(token)
+      view :verify_email
+    rescue FetchVerificationPreview::PreviewError, RegistrationToken::InvalidTokenError
+      flash[:error] = 'Verification link is invalid or has expired'
+      routing.redirect '/'
+    rescue StandardError => e
+      App.logger.warn "VERIFY PAGE FAILED: #{e.inspect}"
+      flash.now[:error] = 'Unable to load verification form'
+      response.status = 400
+      @verification_token = token
+      @verification_purpose = 'email_verification'
+      view :verify_email
+    end
+
+    def load_verification_locals(token)
+      @verification_token = token
+      preview = FetchVerificationPreview.new(App.config).call(registration_token: token)
+      @verification_purpose = preview['purpose']
+      @registration_username = preview['username']
+      @registration_email = preview['email']
+    rescue FetchVerificationPreview::PreviewError
+      preview = RegistrationToken.new.decode(token)
+      @verification_purpose = 'registration'
+      @registration_username = preview['username']
+      @registration_email = preview['email']
+    end
+
+    def handle_verification_post(routing)
+      token = routing.params['registration_token'].to_s.strip
+      purpose = routing.params['verification_purpose'].to_s.strip
+
+      if token.empty?
+        flash[:error] = 'Verification link is invalid'
+        return routing.redirect '/'
+      end
+
+      password = nil
+      if purpose == 'registration'
+        validation = Forms::Verify.new.call(
+          password: routing.params['password'].to_s,
+          password_confirm: routing.params['password_confirm'].to_s
+        )
+
+        if validation.failure?
+          flash.now[:error] = validation.errors.to_h.map { |k, v| "#{k} #{v.join(', ')}" }.join('; ')
+          response.status = 400
+          load_verification_locals(token)
+          return view :verify_email
+        end
+
+        password = validation.to_h[:password]
+      end
+
+      result = CompleteVerification.new(App.config).call(
+        registration_token: token,
+        password: password
+      )
+
+      if result['token']
+        verified_account = result.fetch('account', {}).merge('token' => result['token'])
+        @current_session.store_current_account(verified_account)
+        @current_session.delete_pending_registration
+        flash[:notice] = 'Your account has been verified'
+      else
+        apply_verification_to_session!(result)
+        flash[:notice] = 'Your email has been verified'
+      end
+
+      routing.redirect '/'
+    rescue CompleteVerification::VerificationError => e
+      flash[:error] = e.message
+      routing.redirect '/'
+    rescue ApiClient::ApiError => e
+      flash[:error] = api_error_message(e, 'Verification failed')
+      routing.redirect '/'
+    end
+
     def account_email_verified?(account)
       return false unless account
+      return true if admin?(account)
 
       return account.email_verified? if account.respond_to?(:email_verified?)
 
@@ -364,8 +496,7 @@ module SecureBiddingApp
         'email' => validated[:email]
       )
       merged_hash['email_verified'] = false if merged_hash['email'] != account['email']
-      merged_account = Account.from_hash(merged_hash, get_auth_token)
-      @current_session.store_current_account(merged_account)
+      apply_account_to_session!(Account.from_hash(merged_hash, get_auth_token))
 
       flash[:notice] = if merged_hash['email'] != account['email']
                          'Verification email sent — please check your inbox.'
@@ -384,20 +515,23 @@ module SecureBiddingApp
     end
 
     def handle_resend_account_verification(routing, username)
-      account = @current_account
-      account = load_profile_account
-      return routing.redirect(redirect_to_profile(account['username'])) if account['username'] != username
+      if @current_account['username'] != username
+        return routing.redirect(redirect_to_profile(@current_account['username']))
+      end
+
+      account = merge_profile_account(@current_account, get_auth_token)
 
       if account_email_verified?(account)
+        apply_account_to_session!(account)
         flash[:notice] = 'Your email is already verified'
-        return routing.redirect(redirect_to_profile(account['username']))
+        return routing.redirect '/'
       end
 
       ResendAccountVerification.new(App.config).call(
         user_id: account['id'],
         auth_token: get_auth_token
       )
-      flash[:notice] = 'Verification email sent — please check your inbox.'
+      flash[:notice] = 'Verification email sent — open the link in your inbox to verify your address.'
       routing.redirect redirect_to_profile(account['username'])
     rescue ApiClient::ApiError => e
       flash.now[:error] = api_error_message(e, 'Failed to resend verification email')
@@ -777,66 +911,6 @@ module SecureBiddingApp
       flash.now[:error] = api_error_message(e, 'Registration failed')
       response.status = e.status.to_i
       view :register
-    end
-
-    def handle_registration_verify_get(routing, token)
-      registration = RegistrationToken.new.decode(token)
-      @verification_token = token
-      @registration_email = registration['email']
-      @registration_username = registration['username']
-      view :register_verify
-    rescue RegistrationToken::InvalidTokenError
-      flash[:error] = 'Verification link is invalid'
-      routing.redirect '/register'
-    rescue StandardError => e
-      App.logger.warn "VERIFY PAGE FAILED: #{e.inspect}"
-      flash.now[:error] = 'Unable to load verification form'
-      response.status = 400
-      view :register_verify
-    end
-
-    def handle_registration_verify_post(routing, token)
-      validation = Forms::Verify.new.call(
-        password: routing.params['password'].to_s,
-        password_confirm: routing.params['password_confirm'].to_s
-      )
-
-      if validation.failure?
-        flash.now[:error] = validation.errors.to_h.map { |k, v| "#{k} #{v.join(', ')}" }.join('; ')
-        response.status = 400
-        @verification_token = token
-        registration = RegistrationToken.new.decode(token)
-        @registration_email = registration['email']
-        @registration_username = registration['username']
-        return view :register_verify
-      end
-
-      validated = validation.to_h
-
-      result = VerifyRegistration.new(App.config).call(
-        registration_token: token,
-        password: validated[:password]
-      )
-
-      verified_account = result.fetch('account', {}).merge('token' => result['token'])
-      @current_session.store_current_account(verified_account)
-      @current_session.delete_pending_registration
-      flash[:notice] = 'Your account has been verified'
-      routing.redirect '/'
-    rescue VerifyRegistration::ValidationError => e
-      flash.now[:error] = e.message
-      response.status = 400
-      @verification_token = token
-      @pending_registration = @current_session.pending_registration
-      view :register_verify
-    rescue ApiClient::ApiError => e
-      flash.now[:error] = api_error_message(e, 'Verification failed')
-      response.status = e.status.to_i
-      @verification_token = token
-      registration = RegistrationToken.new.decode(token)
-      @registration_email = registration['email']
-      @registration_username = registration['username']
-      view :register_verify
     end
 
     def api_error_message(error, fallback)

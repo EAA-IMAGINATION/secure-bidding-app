@@ -78,6 +78,8 @@ module SecureBiddingApp
     end
 
     def email_verified?
+      return true if admin?
+
       value = @data['email_verified']
       return true if value == true || value.to_s == 'true'
       return false if value == false || value.to_s == 'false'

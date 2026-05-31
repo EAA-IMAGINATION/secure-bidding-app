@@ -5,8 +5,13 @@ div class="row justify-content-center"
     div class="card shadow-sm"
       div class="card-body p-4 p-md-5"
         p class="text-muted mb-4"
-          | Sign in to your account. Note: Token-based authentication for bidding is only available through registration verification. 
-          a href="/register" Register here
+          | Sign in to your account, or register for email verification and bidding access.
+          a href="/register"  Register here
+
+        - if google_oauth_url
+          div class="d-grid mb-4"
+            a.btn.btn-outline-dark.btn-lg href=google_oauth_url
+              | Sign in with Google
 
         form method="post" action="/auth/login" id="form-login" accept-charset="UTF-8"
           div class="mb-3"

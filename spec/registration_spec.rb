@@ -53,14 +53,14 @@ describe 'Week 12 Registration Flow' do
     end
   end
 
-  describe VerifyRegistration do
+  describe CompleteVerification do
     it 'posts the verification token to the API' do
       stub_request(:post, "#{base_url}/auth/verify")
         .to_return(status: 200, body: '{"token":"jwt","account":{"id":"1","username":"alice","email":"alice@example.com"}}',
                    headers: { 'Content-Type' => 'application/json' })
 
-      result = VerifyRegistration.new(config).call(registration_token: 'token-value',
-                                                   password: 'secret')
+      result = CompleteVerification.new(config).call(registration_token: 'token-value',
+                                                     password: 'secret')
 
       _(result['token']).must_equal 'jwt'
       _(result['account']['username']).must_equal 'alice'
@@ -75,21 +75,61 @@ describe 'Week 12 Registration Flow' do
       _(last_response.status).must_equal 200
       _(last_response.body).must_include 'Username'
       _(last_response.body).must_include 'Email'
-      _(last_response.body).must_include "#{base_url}/auth/register"
-      _(last_response.body).wont_include 'action="/register"'
+      _(last_response.body).must_include 'Send verification email'
+      _(last_response.body).must_include 'action="/register"'
+    end
+  end
+
+  describe 'POST /register' do
+    it 'sends a verification email through the app service layer' do
+      stub_request(:post, "#{base_url}/auth/availability")
+        .to_return(status: 200, body: '{"available":{"username":true,"email":true}}',
+                   headers: { 'Content-Type' => 'application/json' })
+      stub_request(:post, "#{base_url}/auth/register")
+        .to_return(status: 200, body: '{"message":"Check your email to verify your account"}',
+                   headers: { 'Content-Type' => 'application/json' })
+
+      post '/register', username: 'alice', email: 'alice@example.com'
+
+      _(last_response.status).must_equal 302
+      follow_redirect!
+      _(last_response.body).must_include 'Check your email to verify your account'
     end
   end
 
   describe 'GET /register/verify/:token' do
-    it 'renders the verification form' do
+    it 'redirects to the unified verification page' do
       token = RegistrationToken.new.generate(username: 'alice', email: 'alice@example.com')
       get "/register/verify/#{token}"
 
+      _(last_response.status).must_equal 302
+      _(last_response.headers['Location']).must_include '/verify-email?token='
+    end
+  end
+
+  describe 'GET /verify-email' do
+    it 'renders the registration verification form with username and email' do
+      token = RegistrationToken.new.generate(username: 'alice', email: 'alice@example.com')
+      stub_request(:post, "#{base_url}/auth/verification-preview")
+        .with(body: hash_including('registration_token' => token))
+        .to_return(
+          status: 200,
+          body: {
+            purpose: 'registration',
+            username: 'alice',
+            email: 'alice@example.com'
+          }.to_json,
+          headers: { 'Content-Type' => 'application/json' }
+        )
+
+      get "/verify-email?token=#{token}"
+
       _(last_response.status).must_equal 200
-      _(last_response.body).must_include 'Verify your registration'
+      _(last_response.body).must_include 'Finish creating your account'
       _(last_response.body).must_include 'Password'
       _(last_response.body).must_include 'alice'
       _(last_response.body).must_include 'alice@example.com'
+      _(last_response.body).must_include 'Create account'
       _(last_response.body).must_include 'Confirm password'
     end
   end
