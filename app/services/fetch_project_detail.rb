@@ -5,6 +5,7 @@ module SecureBiddingApp
   class FetchProjectDetail
     class ServiceError < StandardError; end
     class NotFoundError < StandardError; end
+    class ForbiddenError < StandardError; end
 
     def initialize(config)
       @config = config
@@ -19,6 +20,7 @@ module SecureBiddingApp
       Project.from_hash(res)
     rescue ApiClient::ApiError => e
       raise NotFoundError, 'Project not found' if e.status == 404
+      raise ForbiddenError, 'You do not have access to this project' if e.status == 403
 
       raise ServiceError, "Failed to fetch project: #{e.message}"
     end
