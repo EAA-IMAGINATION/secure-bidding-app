@@ -64,6 +64,6 @@ npx markdownlint-cli2 "**/*.md" "#node_modules"
 
 ## Architecture (reference)
 
-Server-rendered Roda + Slim over API at `http://localhost:3001/api/v1`.
+Server-rendered Roda + Slim over API at `http://localhost:3000/api/v1`.
 Controllers in `app/controllers/`, services in `app/services/`, views in
 `app/presentation/views/`.
