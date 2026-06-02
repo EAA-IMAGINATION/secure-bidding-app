@@ -2,6 +2,14 @@ div class="row justify-content-center mt-4"
   div class="col-lg-9"
     a href="/" class="btn btn-outline-secondary mb-3" Back to Projects
 
+    - unless project
+      div class="alert alert-warning"
+        | This project could not be loaded. It may have been removed, is still a draft you cannot access, or you may need to verify your email and sign in again.
+      - if current_account && !account_email_verified?(current_account)
+        p
+          a href="/verify-email" class="btn btn-primary" Verify your email
+
+    - if project
     div class="card mb-4"
       div class="card-body"
         h2 class="card-title mb-3" = project['title']
@@ -41,6 +49,8 @@ div class="row justify-content-center mt-4"
                   input type="text" name="account_id" placeholder="Account ID" class="form-control" required=true
                 div class="col-auto"
                   button type="submit" class="btn btn-primary" Add Co-owner
+
+    - end
 
     / Milestone & Escrow Status Section (SEC-FT-06)
     - if project && project['state'] == 'published' && allowed?(project, 'manage_milestones')

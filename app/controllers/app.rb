@@ -709,11 +709,24 @@ module SecureBiddingApp
         is_owner: project.allowed?('manage_memberships')
       }
     rescue FetchProjectDetail::NotFoundError
-      { project: nil, current_account: @current_account, is_owner: false }
+      { project: nil, current_account: @current_account, is_owner: false, project_unavailable: :not_found }
+    rescue FetchProjectDetail::ForbiddenError
+      { project: nil, current_account: @current_account, is_owner: false, project_unavailable: :forbidden }
     end
 
     def handle_project_detail(_routing, project_id)
-      view :project_detail, locals: project_detail_locals(project_id)
+      locals = project_detail_locals(project_id)
+      if locals[:project].nil?
+        case locals[:project_unavailable]
+        when :forbidden
+          flash.now[:error] = 'You do not have access to this project.'
+          response.status = 403
+        else
+          flash.now[:error] = 'Project not found or is no longer available.'
+          response.status = 404
+        end
+      end
+      view :project_detail, locals: locals
     rescue FetchProjectDetail::ServiceError => e
       response.status = 500
       flash.now[:error] = e.message
