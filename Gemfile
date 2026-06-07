@@ -17,6 +17,7 @@ gem 'http', '~>5.1'
 # Security & encoding
 gem 'base64'
 gem 'rbnacl', '~>7.1'
+gem 'secure_headers'
 
 # Server
 gem 'puma', '~>7.0'

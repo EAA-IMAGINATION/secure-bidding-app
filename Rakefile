@@ -23,6 +23,26 @@ namespace :generate do
     puts "MSG_KEY=#{encoded}"
     puts "\nAdd this to config/secrets.yml or set as Heroku config var"
   end
+
+  task :signing_key do
+    require 'rbnacl'
+    signing_key = RbNaCl::SigningKey.generate
+    verify_key = signing_key.verify_key
+    puts "SIGNING_KEY=#{Base64.strict_encode64(signing_key.to_bytes)}"
+    puts " VERIFY_KEY=#{Base64.strict_encode64(verify_key.to_bytes)}"
+    puts "\nAdd SIGNING_KEY to the app secrets and VERIFY_KEY to the API secrets"
+  end
+end
+
+namespace :url do
+  desc 'Generate SRI integrity hash for a URL (argument: URL=...)'
+  task :integrity do
+    url = ENV.fetch('URL', nil)
+    abort 'Usage: rake url:integrity URL=https://example.com/script.js' if url.to_s.strip.empty?
+
+    sha384 = `curl -L -s #{url} | openssl dgst -sha384 -binary | openssl enc -base64 -A`.strip
+    puts "sha384-#{sha384}"
+  end
 end
 
 namespace :run do
@@ -56,7 +76,9 @@ task :spec do
     'spec/authenticate_account_spec.rb ' \
     'spec/registration_spec.rb ' \
     'spec/reset_password_spec.rb ' \
-    'spec/security_features_spec.rb'
+    'spec/security_features_spec.rb ' \
+    'spec/signed_message_spec.rb ' \
+    'spec/client_side_security_spec.rb'
   )
 end
 

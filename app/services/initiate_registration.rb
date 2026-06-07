@@ -14,7 +14,7 @@ module SecureBiddingApp
     def call(username:, email:)
       validate(username, email)
       @availability.call(username: username, email: email)
-      @client.post('/auth/register', { username: username, email: email })
+      @client.post('/auth/register', SignedMessage.sign({ username: username, email: email }))
     rescue CheckAccountAvailability::ValidationError => e
       raise ValidationError, e.message
     rescue CheckAccountAvailability::UnavailableError => e

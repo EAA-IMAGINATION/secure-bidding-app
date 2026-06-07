@@ -35,8 +35,8 @@ div class="row justify-content-center mt-4"
             - if project && allowed?(project, 'edit')
               a href="/projects/#{project['id']}/edit" class="btn btn-warning" Edit Project
             - if project && allowed?(project, 'delete')
-              form method="post" action="/projects/#{project['id']}/delete" class="d-inline"
-                button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this project?');" Delete Project
+              form method="post" action="/projects/#{project['id']}/delete" class="d-inline" data-confirm="Are you sure you want to delete this project?"
+                button type="submit" class="btn btn-danger" Delete Project
 
         - if project && allowed?(project, 'manage_owners')
           div class="card mt-3"
@@ -108,7 +108,7 @@ div class="row justify-content-center mt-4"
             div class="alert alert-warning" You are the project owner and cannot bid on your own project.
           - else
             - if project && project['nacl_public_key']
-              form method="post" action="/projects/#{project['id']}/bids" id="bid-form"
+              form method="post" action="/projects/#{project['id']}/bids" id="bid-form" data-project-public-key=project['nacl_public_key'] data-project-id=project['id']
                 div class="mb-3"
                   label for="contractor_alias" class="form-label" Contractor Alias
                   input type="text" class="form-control" id="contractor_alias" name="contractor_alias" required=true
@@ -131,62 +131,12 @@ div class="row justify-content-center mt-4"
 
                 button type="submit" class="btn btn-primary" id="bid-submit-btn" disabled=true Submit Bid
 
-              script
-                | const projectPublicKey = "#{project['nacl_public_key']}";
-                | const projectId = "#{project['id']}";
-                | document.getElementById('bid-form').addEventListener('submit', async function(e) {
-                |   e.preventDefault();
-                |   
-                |   // Validate project ID is UUID format
-                |   if (!UUIDValidator.isValid(projectId)) {
-                |     alert('Invalid project ID format');
-                |     return false;
-                |   }
-                |   
-                |   const statusDiv = document.getElementById('bid-crypto-status');
-                |   const statusMessage = document.getElementById('bid-crypto-message');
-                |   const submitBtn = document.getElementById('bid-submit-btn');
-                |   const form = this;
-                |   
-                |   try {
-                |     statusDiv.style.display = 'block';
-                |     statusMessage.textContent = 'Encrypting your bid...';
-                |     
-                |     const bidAmount = document.getElementById('bid_amount').value.toString();
-                |     const proposalText = document.getElementById('proposal_text').value;
-                |     
-                |     // Encrypt bid amount
-                |     const encryptedAmount = CryptoUtils.encryptForProject(projectPublicKey, bidAmount);
-                |     document.getElementById('encrypted_bid_amount').value = JSON.stringify(encryptedAmount);
-                |     
-                |     // Encrypt proposal text
-                |     const encryptedProposal = CryptoUtils.encryptForProject(projectPublicKey, proposalText);
-                |     document.getElementById('encrypted_proposal_text').value = JSON.stringify(encryptedProposal);
-                |     
-                |     statusMessage.textContent = '✓ Bid encrypted successfully. Submitting...';
-                |     statusDiv.classList.remove('alert-info');
-                |     statusDiv.classList.add('alert-success');
-                |     
-                |     // Submit the form
-                |     form.submit();
-                |   } catch (err) {
-                |     console.error('Bid encryption error:', err);
-                |     statusMessage.textContent = 'Error: ' + err.message;
-                |     statusDiv.classList.remove('alert-info');
-                |     statusDiv.classList.add('alert-danger');
-                |   }
-                | });
-                | 
-                | // Enable submit button once DOM is ready
-                | document.addEventListener('DOMContentLoaded', function() {
-                |   document.getElementById('bid-submit-btn').disabled = false;
-                | });
             - else
               div class="alert alert-danger" Error: Project does not have encryption keys configured.
 
       - # SEC-FT-05: Atomic Reveal with strict deadline gating
       - if project && project['bidding_deadline'] && project['state'] == 'published'
-        div class="card mt-4 border-warning"
+        div class="card mt-4 border-warning" data-reveal-panel="" data-deadline=project['bidding_deadline'] data-project-id=project['id']
           div class="card-body"
             h5 class="card-title mb-3" Atomic Reveal Status
 
@@ -204,38 +154,9 @@ div class="row justify-content-center mt-4"
 
               button type="button" class="btn btn-primary mt-3" id="reveal-bids-btn" disabled=true Bid Reveal (Locked Until Deadline)
 
-              script
-                | document.addEventListener('DOMContentLoaded', function() {
-                |   const deadlineISO = "#{project['bidding_deadline']}";
-                |   
-                |   // Initialize countdown and deadline gating
-                |   AtomicReveal.initCountdown(deadlineISO, 'countdown-timer');
-                |   
-                |   // Fetch integrity snapshot after deadline (will be ready after deadline passes)
-                |   setTimeout(async function() {
-                |     const projectId = "#{project['id']}";
-                |     const integrity = await AtomicReveal.fetchIntegritySnapshot(projectId);
-                |     AtomicReveal.displayIntegrityBadge(integrity, 'integrity-badge');
-                |   }, 500);
-                |   
-                |   // Reveal button behavior: only allow reload after deadline AND integrity check
-                |   const revealBtn = document.getElementById('reveal-bids-btn');
-                |   if (revealBtn) {
-                |     revealBtn.addEventListener('click', function(e) {
-                |       if (revealBtn.disabled) {
-                |         e.preventDefault();
-                |         alert('Bid reveal is locked until the bidding deadline passes.');
-                |         return false;
-                |       }
-                |       // After deadline, reload page to show decrypted bids
-                |       location.reload();
-                |     });
-                |   }
-                | });
-
       - # Bids area: render full bids if API returned them, otherwise show count when present
       - if project && project['bids'] && project['bids'].any?
-        div class="card mt-4"
+        div class="card mt-4" data-revealed-bids="" data-project-id=project['id'] data-integrity-badge="integrity-badge-bids"
           div class="card-body"
             h5 class="card-title" Submitted Bids (Decrypted)
 
@@ -253,16 +174,6 @@ div class="row justify-content-center mt-4"
                     td = bid['contractor_alias'] || '—'
                     td
                       small = bid['encrypted_bid_amount'] ? bid['encrypted_bid_amount'][0...50] + '...' : '—'
-
-            script
-              | document.addEventListener('DOMContentLoaded', function() {
-              |   // Display integrity verification for revealed bids
-              |   setTimeout(async function() {
-              |     const projectId = "#{project['id']}";
-              |     const integrity = await AtomicReveal.fetchIntegritySnapshot(projectId);
-              |     AtomicReveal.displayIntegrityBadge(integrity, 'integrity-badge-bids');
-              |   }, 500);
-              | });
 
     - elsif !current_account
       div class="card mt-4"

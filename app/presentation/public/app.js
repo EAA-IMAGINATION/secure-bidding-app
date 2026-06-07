@@ -9,6 +9,18 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   });
+
+  document.querySelectorAll('form[data-confirm]').forEach(function(form) {
+    form.addEventListener('submit', function(e) {
+      if (!confirm(form.dataset.confirm)) {
+        e.preventDefault();
+      }
+    });
+  });
+
+  initProjectFormCrypto();
+  initBidFormCrypto();
+  initProjectRevealPanels();
 });
 
 // === Cryptography Helpers ===
@@ -240,8 +252,11 @@ const AtomicReveal = {
   // Fetch and display integrity snapshot
   async fetchIntegritySnapshot(projectId) {
     try {
-      // Try to fetch integrity snapshot from API
-      const response = await fetch(`/api/v1/projects/${projectId}/integrity_snapshot`);
+      const apiRoot = document.querySelector('meta[name="api-url"]')?.content?.replace(/\/$/, '');
+      const path = apiRoot
+        ? `${apiRoot}/projects/${projectId}/integrity_snapshot`
+        : `/api/v1/projects/${projectId}/integrity_snapshot`;
+      const response = await fetch(path);
       if (!response.ok) {
         // Endpoint might not exist yet, or snapshot not available
         console.warn('Integrity snapshot not yet available');
@@ -289,3 +304,146 @@ const AtomicReveal = {
 
 // Make AtomicReveal globally available
 window.AtomicReveal = AtomicReveal;
+
+function initProjectFormCrypto() {
+  const form = document.getElementById('project-form');
+  if (!form) return;
+
+  const statusDiv = document.getElementById('crypto-status');
+  const statusMessage = document.getElementById('crypto-message');
+  const submitBtn = document.getElementById('submit-btn');
+  const passphraseField = document.getElementById('project_passphrase');
+
+  passphraseField.addEventListener('input', async function() {
+    const passphrase = this.value.trim();
+    if (passphrase.length < 8) {
+      submitBtn.disabled = true;
+      return;
+    }
+
+    try {
+      const keyPair = CryptoUtils.generateKeyPair();
+      document.getElementById('nacl_public_key').value = keyPair.publicKey;
+
+      const encrypted = await CryptoUtils.encryptPrivateKeyWithPassword(
+        keyPair.secretKey,
+        passphrase
+      );
+
+      document.getElementById('nacl_encrypted_private_key').value = JSON.stringify({
+        ciphertext: encrypted.ciphertext,
+        nonce: encrypted.nonce,
+        salt: encrypted.salt
+      });
+
+      statusMessage.textContent = '✓ Cryptographic keys generated and secured with passphrase';
+      statusDiv.classList.remove('alert-info', 'alert-danger');
+      statusDiv.classList.add('alert-success');
+      submitBtn.disabled = false;
+    } catch (err) {
+      console.error('Crypto error:', err);
+      statusMessage.textContent = 'Error: ' + err.message;
+      statusDiv.classList.remove('alert-info', 'alert-success');
+      statusDiv.classList.add('alert-danger');
+      submitBtn.disabled = true;
+    }
+
+    statusDiv.style.display = 'block';
+  });
+
+  form.addEventListener('submit', function(e) {
+    const deadline = new Date(document.getElementById('bidding_deadline').value);
+    if (deadline <= new Date()) {
+      e.preventDefault();
+      alert('Bidding deadline must be in the future');
+    }
+  });
+}
+
+function initBidFormCrypto() {
+  const form = document.getElementById('bid-form');
+  if (!form) return;
+
+  const projectPublicKey = form.dataset.projectPublicKey;
+  const projectId = form.dataset.projectId;
+  const submitBtn = document.getElementById('bid-submit-btn');
+
+  if (submitBtn) {
+    submitBtn.disabled = false;
+  }
+
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    if (!UUIDValidator.isValid(projectId)) {
+      alert('Invalid project ID format');
+      return false;
+    }
+
+    const statusDiv = document.getElementById('bid-crypto-status');
+    const statusMessage = document.getElementById('bid-crypto-message');
+
+    try {
+      statusDiv.style.display = 'block';
+      statusMessage.textContent = 'Encrypting your bid...';
+
+      const bidAmount = document.getElementById('bid_amount').value.toString();
+      const proposalText = document.getElementById('proposal_text').value;
+
+      const encryptedAmount = CryptoUtils.encryptForProject(projectPublicKey, bidAmount);
+      document.getElementById('encrypted_bid_amount').value = JSON.stringify(encryptedAmount);
+
+      const encryptedProposal = CryptoUtils.encryptForProject(projectPublicKey, proposalText);
+      document.getElementById('encrypted_proposal_text').value = JSON.stringify(encryptedProposal);
+
+      statusMessage.textContent = '✓ Bid encrypted successfully. Submitting...';
+      statusDiv.classList.remove('alert-info', 'alert-danger');
+      statusDiv.classList.add('alert-success');
+
+      form.submit();
+    } catch (err) {
+      console.error('Bid encryption error:', err);
+      statusMessage.textContent = 'Error: ' + err.message;
+      statusDiv.classList.remove('alert-info', 'alert-success');
+      statusDiv.classList.add('alert-danger');
+    }
+  });
+}
+
+function initProjectRevealPanels() {
+  document.querySelectorAll('[data-reveal-panel]').forEach(function(panel) {
+    const deadlineISO = panel.dataset.deadline;
+    const projectId = panel.dataset.projectId;
+    if (!deadlineISO || !projectId) return;
+
+    AtomicReveal.initCountdown(deadlineISO, panel.querySelector('[data-countdown]')?.id || 'countdown-timer');
+
+    setTimeout(async function() {
+      const integrity = await AtomicReveal.fetchIntegritySnapshot(projectId);
+      const badgeId = panel.dataset.integrityBadge || 'integrity-badge';
+      AtomicReveal.displayIntegrityBadge(integrity, badgeId);
+    }, 500);
+
+    const revealBtn = panel.querySelector('#reveal-bids-btn');
+    if (revealBtn) {
+      revealBtn.addEventListener('click', function(e) {
+        if (revealBtn.disabled) {
+          e.preventDefault();
+          alert('Bid reveal is locked until the bidding deadline passes.');
+          return false;
+        }
+        location.reload();
+      });
+    }
+  });
+
+  document.querySelectorAll('[data-revealed-bids]').forEach(function(section) {
+    const projectId = section.dataset.projectId;
+    if (!projectId) return;
+
+    setTimeout(async function() {
+      const integrity = await AtomicReveal.fetchIntegritySnapshot(projectId);
+      AtomicReveal.displayIntegrityBadge(integrity, section.dataset.integrityBadge || 'integrity-badge-bids');
+    }, 500);
+  });
+}

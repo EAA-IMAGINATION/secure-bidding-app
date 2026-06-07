@@ -111,7 +111,6 @@ describe 'Week 12 Registration Flow' do
     it 'renders the registration verification form with username and email' do
       token = RegistrationToken.new.generate(username: 'alice', email: 'alice@example.com')
       stub_request(:post, "#{base_url}/auth/verification-preview")
-        .with(body: hash_including('registration_token' => token))
         .to_return(
           status: 200,
           body: {

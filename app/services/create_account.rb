@@ -14,7 +14,7 @@ module SecureBiddingApp
       validate(email, username, password)
       payload = { email: email, username: username, password: password }
       payload[:verification_token] = verification_token if verification_token
-      @client.post('/accounts', payload)
+      @client.post('/accounts', SignedMessage.sign(payload))
     end
 
     private

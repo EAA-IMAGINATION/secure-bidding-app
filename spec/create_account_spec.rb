@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
-require 'minitest/autorun'
+require_relative 'spec_helper'
 require 'webmock/minitest'
 require 'ostruct'
-require_relative '../app/services/create_account'
 
 class CreateAccountTest < Minitest::Test
   def setup

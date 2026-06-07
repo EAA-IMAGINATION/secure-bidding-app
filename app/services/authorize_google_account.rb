@@ -42,7 +42,7 @@ module SecureBiddingApp
     end
 
     def authorize_with_api(id_token)
-      response = @client.post('/auth/sso', { id_token: id_token })
+      response = @client.post('/auth/sso', SignedMessage.sign({ id_token: id_token }))
       account = response.reject { |key, _| key == 'token' }
       { account: account, auth_token: response['token'] }
     rescue ApiClient::ApiError
