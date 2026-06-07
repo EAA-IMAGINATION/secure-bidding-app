@@ -13,7 +13,8 @@ module SecureBiddingApp
     def call(username:, email:)
       validate(username, email)
 
-      response = @client.post('/auth/availability', { username: username, email: email })
+      response = @client.post('/auth/availability',
+                              SignedMessage.sign({ username: username, email: email }))
       ensure_available!(response)
       response
     rescue ApiClient::ApiError => e

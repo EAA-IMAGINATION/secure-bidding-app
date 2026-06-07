@@ -12,7 +12,8 @@ module SecureBiddingApp
     def call(registration_token:)
       raise PreviewError, 'Verification token is required' if registration_token.to_s.strip.empty?
 
-      @client.post('/auth/verification-preview', { registration_token: registration_token })
+      @client.post('/auth/verification-preview',
+                   SignedMessage.sign({ registration_token: registration_token }))
     rescue ApiClient::ApiError => e
       raise PreviewError, api_error_message(e)
     end

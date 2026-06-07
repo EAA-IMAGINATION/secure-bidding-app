@@ -14,7 +14,7 @@ module SecureBiddingApp
 
       payload = { registration_token: registration_token }
       payload[:password] = password.to_s unless password.nil?
-      @client.post('/auth/verify', payload)
+      @client.post('/auth/verify', SignedMessage.sign(payload))
     rescue ApiClient::ApiError => e
       raise VerificationError, api_error_message(e)
     end
