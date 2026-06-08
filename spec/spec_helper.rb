@@ -29,6 +29,7 @@ ResetAccountPassword = SecureBiddingApp::ResetAccountPassword
 ResendAccountVerification = SecureBiddingApp::ResendAccountVerification
 UpdateAccount = SecureBiddingApp::UpdateAccount
 SubmitBid = SecureBiddingApp::SubmitBid
+AssignSystemRole = SecureBiddingApp::AssignSystemRole
 VerifyRegistration = SecureBiddingApp::CompleteVerification
 CompleteVerification = SecureBiddingApp::CompleteVerification
 FetchVerificationPreview = SecureBiddingApp::FetchVerificationPreview

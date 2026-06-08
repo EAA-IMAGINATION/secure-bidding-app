@@ -15,7 +15,7 @@ nav.navbar.navbar-expand-lg.navbar-dark.bg-primary.shadow-sm role="navigation"
               a.nav-link href="/projects/my" Projects
           - if can_manage_accounts?(@current_account)
             li.nav-item
-              a.nav-link href="/admin/users" Admin Users
+              a.nav-link href="/admin/users" Users
           li.nav-item.dropdown
             a.nav-link.dropdown-toggle href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false"
               = @current_account['username']
