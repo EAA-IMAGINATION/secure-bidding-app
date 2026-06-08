@@ -10,175 +10,171 @@ div class="row justify-content-center mt-4"
           a href="/verify-email" class="btn btn-primary" Verify your email
 
     - if project
-    div class="card mb-4"
-      div class="card-body"
-        h2 class="card-title mb-3" = project['title']
-        
-        p class="mb-2"
-          strong State:
-          span class="badge bg-#{project['state'] == 'published' ? 'success' : 'warning'}" = project['state'].capitalize
-        
-        p class="mb-4"
-          strong Budget:
-          | 
-          = number_to_currency(project['budget_cents'] / 100.0)
-
-        / Bidding deadline display
-        - if project && project['bidding_deadline']
-          p class="mb-2"
-            strong Bidding Deadline:
-            |
-            = Time.parse(project['bidding_deadline']).strftime('%Y-%m-%d %H:%M UTC') rescue project['bidding_deadline']
-
-        - if project && (allowed?(project, 'edit') || allowed?(project, 'delete'))
-          div class="d-flex gap-2 mt-4"
-            - if project && allowed?(project, 'edit')
-              a href="/projects/#{project['id']}/edit" class="btn btn-warning" Edit Project
-            - if project && allowed?(project, 'delete')
-              form method="post" action="/projects/#{project['id']}/delete" class="d-inline" data-confirm="Are you sure you want to delete this project?"
-                button type="submit" class="btn btn-danger" Delete Project
-
-        - if project && allowed?(project, 'manage_owners')
-          div class="card mt-3"
-            div class="card-body"
-              h5 class="card-title" Manage Owners
-              p Add a co-owner by account ID (non-admin owners will send an invitation)
-
-              form method="post" action="/projects/#{project['id']}/memberships" class="row g-2"
-                div class="col-auto"
-                  input type="text" name="account_id" placeholder="Account ID" class="form-control" required=true
-                div class="col-auto"
-                  button type="submit" class="btn btn-primary" Add Co-owner
-
-    - end
-
-    / Milestone & Escrow Status Section (SEC-FT-06)
-    - if project && project['state'] == 'published' && allowed?(project, 'manage_milestones')
-      div class="card mb-4 border-info"
+      div class="card mb-4"
         div class="card-body"
-          h5 class="card-title mb-3" Project Milestones & Escrow
+          h2 class="card-title mb-3" = project['title']
 
-          - if project['milestones'] && project['milestones'].any?
-            table class="table table-sm align-middle"
+          p class="mb-2"
+            strong State:
+            span class="badge bg-secondary ms-1" = project['state'].to_s.tr('_', ' ').capitalize
+          - if project['payment_status'] && project['payment_status'] != 'none'
+            p class="mb-2"
+              strong Payment:
+              span class="badge bg-info text-dark ms-1" = project['payment_status'].to_s.tr('_', ' ').capitalize
+
+          p class="mb-2"
+            strong Budget:
+            = number_to_currency(project['budget_cents'] / 100.0)
+
+          - if project['bidding_deadline']
+            p class="mb-2"
+              strong Bidding Deadline:
+              = Time.parse(project['bidding_deadline']).strftime('%Y-%m-%d %H:%M UTC') rescue project['bidding_deadline']
+
+          - if project && (allowed?(project, 'edit') || allowed?(project, 'delete'))
+            div class="d-flex gap-2 mt-4"
+              - if allowed?(project, 'edit')
+                a href="/projects/#{project['id']}/edit" class="btn btn-warning" Edit Project
+              - if allowed?(project, 'delete')
+                form method="post" action="/projects/#{project['id']}/delete" class="d-inline" data-confirm="Are you sure you want to delete this project?"
+                  button type="submit" class="btn btn-danger" Delete Project
+
+          - if project && allowed?(project, 'manage_owners')
+            div class="card mt-3"
+              div class="card-body"
+                h5 class="card-title" Manage Owners
+                form method="post" action="/projects/#{project['id']}/memberships" class="row g-2"
+                  div class="col-auto"
+                    input type="text" name="account_id" placeholder="Account ID" class="form-control" required=true
+                  div class="col-auto"
+                    button type="submit" class="btn btn-primary" Add Co-owner
+
+      / Bidding status for owners while published
+      - if project && project['state'] == 'published' && project['bidding_deadline'] && allowed?(project, 'view_bid_count')
+        div class="card mb-4 border-warning" data-reveal-panel="" data-deadline=project['bidding_deadline'] data-project-id=project['id']
+          div class="card-body"
+            h5 class="card-title" Bidding Status
+            div id="countdown-timer" class="mb-3" Initializing countdown...
+            - if !project['bid_count'].nil?
+              div class="alert alert-info mb-0"
+                | Sealed bids received:
+                strong = project['bid_count'].to_i
+                - unless project['bidding_closed']
+                  span.text-muted.ms-2 Bid amounts stay hidden until the deadline.
+
+      / Revealed bids after deadline
+      - if project && project['bids'] && project['bids'].any?
+        div class="card mb-4" id="revealed-bids-section" data-revealed-bids="" data-project-id=project['id'] data-deadline=project['bidding_deadline'] data-encrypted-private-key=project['nacl_encrypted_private_key'] data-integrity-badge="integrity-badge-bids"
+          div class="card-body"
+            h5 class="card-title" Bid Review
+            div id="integrity-badge-bids" class="mb-3" Checking integrity...
+            div id="decrypt-bids-status" class="alert" style="display: none;" role="alert"
+
+            table class="table align-middle"
               thead
                 tr
-                  th Order
-                  th Title
-                  th Budget
-                  th State
-                  th Escrow
+                  th Contractor
+                  th Amount
+                  th Proposal
+                  th Document
+                  - if allowed?(project, 'award_bid')
+                    th Select
               tbody
-                - project['milestones'].each do |milestone|
-                  tr
-                    td = milestone['sequence_order']
-                    td = milestone['title']
-                    td = number_to_currency((milestone['budget_cents'] || 0) / 100.0)
-                    td
-                      span class="badge bg-secondary" = milestone['state']
-                    td
-                      - if milestone['policy'] && milestone['policy']['fund_escrow'] && milestone['state'] == 'pending_funding'
-                        form method="post" action="/projects/#{project['id']}/escrow/fund" class="d-inline"
-                          input type="hidden" name="milestone_id" value=milestone['id']
-                          button type="submit" class="btn btn-sm btn-success" Fund Escrow
-                      - elsif milestone['policy'] && milestone['policy']['release_escrow'] && milestone['state'] == 'funded_escrow'
-                        form method="post" action="/projects/#{project['id']}/escrow/release" class="d-inline"
-                          input type="hidden" name="milestone_id" value=milestone['id']
-                          button type="submit" class="btn btn-sm btn-primary" Release Funds
-                      - else
-                        span class="text-muted" —
-          - else
-            p class="text-muted mb-3" No milestones yet. Add one to split the project budget into escrow-funded phases.
+                - project['bids'].each do |bid|
+                  tr data-bid-row="" data-bid-id=bid['id'] data-encrypted-amount=(bid['encrypted_bid_amount'].to_json) data-encrypted-proposal=(bid['encrypted_proposal_text'].to_json) data-encrypted-document=(bid['encrypted_document']&.to_json) data-document-file-name=bid['document_file_name']
+                    td = bid['contractor_alias'] || '—'
+                    td data-decrypted-amount="" em.text-muted —
+                    td data-decrypted-proposal="" em.text-muted —
+                    td data-decrypted-document="" em.text-muted —
+                    - if allowed?(project, 'award_bid')
+                      td
+                        - if project['awarded_bid_submission_id'] == bid['id']
+                          span class="badge bg-success" Selected
+                        - else
+                          form method="post" action="/projects/#{project['id']}/award" class="d-inline"
+                            input type="hidden" name="bid_submission_id" value=bid['id']
+                            input type="hidden" name="awarded_bid_amount_cents" data-award-amount-cents="" value=""
+                            button type="submit" class="btn btn-sm btn-primary" data-confirm="Award this bidder and move the project to in progress?" Select Bidder
 
-          form method="post" action="/projects/#{project['id']}/milestones" class="row g-2 mb-0"
-            div class="col-md-4"
-              input type="text" name="title" class="form-control form-control-sm" placeholder="Milestone title" required=true
-            div class="col-md-3"
-              input type="number" name="budget_cents" class="form-control form-control-sm" placeholder="Budget (cents)" min="0" required=true
-            div class="col-md-3"
-              input type="text" name="description" class="form-control form-control-sm" placeholder="Description (optional)"
-            div class="col-md-2"
-              button type="submit" class="btn btn-sm btn-outline-primary w-100" Add Milestone
-
-    - if project && project['state'] == 'published' && current_account && allowed?(project, 'submit_bid')
-      div class="card"
-        div class="card-body"
-          h5 class="card-title" Submit a Bid
-
-          - if is_owner || (project && allowed?(project, 'manage_owners'))
-            div class="alert alert-warning" You are the project owner and cannot bid on your own project.
-          - else
-            - if project && project['nacl_public_key']
+      / Submit bid while open
+      - if project && project['state'] == 'published' && current_account && allowed?(project, 'submit_bid')
+        div class="card mb-4"
+          div class="card-body"
+            h5 class="card-title" Submit a Bid
+            - if project['nacl_public_key']
               form method="post" action="/projects/#{project['id']}/bids" id="bid-form" data-project-public-key=project['nacl_public_key'] data-project-id=project['id']
                 div class="mb-3"
                   label for="contractor_alias" class="form-label" Contractor Alias
                   input type="text" class="form-control" id="contractor_alias" name="contractor_alias" required=true
-
                 div class="mb-3"
-                  label for="bid_amount" class="form-label" Bid Amount
-                  input type="number" class="form-control" id="bid_amount" name="bid_amount" required=true min="0" placeholder="Enter your bid amount (will be encrypted)"
-
+                  label for="bid_amount" class="form-label" Bid Amount (cents)
+                  input type="number" class="form-control" id="bid_amount" name="bid_amount" required=true min="0"
                 div class="mb-3"
                   label for="proposal_text" class="form-label" Proposal
-                  textarea class="form-control" id="proposal_text" name="proposal_text" rows="4" placeholder="Enter your proposal details (will be encrypted)"
-
-                / Hidden fields for encrypted data
+                  textarea class="form-control" id="proposal_text" name="proposal_text" rows="4"
+                div class="mb-3"
+                  label for="bid_document" class="form-label" Supporting Document (optional)
+                  input type="file" class="form-control" id="bid_document" name="bid_document"
                 input type="hidden" id="encrypted_bid_amount" name="encrypted_bid_amount" value=""
                 input type="hidden" id="encrypted_proposal_text" name="encrypted_proposal_text" value=""
-
+                input type="hidden" id="encrypted_document" name="encrypted_document" value=""
+                input type="hidden" id="document_file_name" name="document_file_name" value=""
+                input type="hidden" id="document_file_hash" name="document_file_hash" value=""
                 div class="mb-3" id="bid-crypto-status" style="display: none;"
                   div class="alert alert-info" role="alert"
                     span id="bid-crypto-message" Encrypting your bid...
-
-                button type="submit" class="btn btn-primary" id="bid-submit-btn" disabled=true Submit Bid
-
+                button type="submit" class="btn btn-primary" id="bid-submit-btn" Submit Bid
             - else
-              div class="alert alert-danger" Error: Project does not have encryption keys configured.
+              div class="alert alert-danger" Project encryption keys are not configured.
 
-      - # SEC-FT-05: Atomic Reveal with strict deadline gating
-      - if project && project['bidding_deadline'] && project['state'] == 'published'
-        div class="card mt-4 border-warning" data-reveal-panel="" data-deadline=project['bidding_deadline'] data-project-id=project['id']
+      / In progress / payment lifecycle
+      - if project && %w[in_progress payment_pending closed].include?(project['state'].to_s)
+        div class="card mb-4 border-primary"
           div class="card-body"
-            h5 class="card-title mb-3" Atomic Reveal Status
+            h5 class="card-title" Project Delivery
+            - if project['awarded_bid_submission_id']
+              p
+                strong Awarded bid:
+                = project['awarded_bid_submission_id']
+            - if project['awarded_bid_amount_cents']
+              p
+                strong Awarded amount:
+                = number_to_currency(project['awarded_bid_amount_cents'].to_i / 100.0)
+            - if project['payment_amount_cents']
+              p
+                strong Payment recorded:
+                = number_to_currency(project['payment_amount_cents'].to_i / 100.0)
 
-            - if project['nacl_public_key']
-              div id="countdown-timer" class="mb-3"
-                | (Initializing countdown...)
+            - if allowed?(project, 'request_payment')
+              form method="post" action="/projects/#{project['id']}/request_payment"
+                button type="submit" class="btn btn-warning" Request Payment
 
-              - if allowed?(project, 'view_bid_count') && !project['bid_count'].nil?
-                div class="alert alert-info"
-                  | Total bids received:
-                  strong = project['bid_count'].to_i
+            - if allowed?(project, 'process_payment')
+              p class="text-muted"
+                | Freelancer requested payment. Pay the awarded bid amount
+                - if project['awarded_bid_amount_cents']
+                  | :
+                  strong.ms-1 = number_to_currency(project['awarded_bid_amount_cents'].to_i / 100.0)
+              form method="post" action="/projects/#{project['id']}/process_payment" data-confirm="Send payment for the awarded bid amount?"
+                button type="submit" class="btn btn-success" Pay
 
-              div id="integrity-badge" class="mt-3"
-                | (Checking integrity...)
+            - if allowed?(project, 'acknowledge_payment')
+              p class="text-muted"
+                | Payment is in process. Accept to close the project.
+                - if project['payment_amount_cents']
+                  span.ms-1
+                    | Amount:
+                    strong = number_to_currency(project['payment_amount_cents'].to_i / 100.0)
+              form method="post" action="/projects/#{project['id']}/acknowledge_payment" data-confirm="Accept payment and close this project?"
+                button type="submit" class="btn btn-primary" Accept Payment
 
-              button type="button" class="btn btn-primary mt-3" id="reveal-bids-btn" disabled=true Bid Reveal (Locked Until Deadline)
-
-      - # Bids area: render full bids if API returned them, otherwise show count when present
-      - if project && project['bids'] && project['bids'].any?
-        div class="card mt-4" data-revealed-bids="" data-project-id=project['id'] data-integrity-badge="integrity-badge-bids"
-          div class="card-body"
-            h5 class="card-title" Submitted Bids (Decrypted)
-
-            div id="integrity-badge-bids" class="mb-3"
-              | (Verifying integrity...)
-
-            table class="table"
-              thead
-                tr
-                  th Contractor
-                  th Encrypted Bid (Base64)
-              tbody
-                - project['bids'].each do |bid|
-                  tr
-                    td = bid['contractor_alias'] || '—'
-                    td
-                      small = bid['encrypted_bid_amount'] ? bid['encrypted_bid_amount'][0...50] + '...' : '—'
+            - if project['state'] == 'closed'
+              div class="alert alert-success mb-0" Project closed. Payment accepted.
 
     - elsif !current_account
       div class="card mt-4"
         div class="card-body"
-          p class="mb-2" To submit a bid, you need to be logged in.
+          p class="mb-2" To submit a bid, sign in or register.
           div class="d-flex gap-2"
             a href="/register" class="btn btn-primary" Register
             a href="/auth/login" class="btn btn-outline-primary" Login

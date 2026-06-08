@@ -205,6 +205,38 @@ module SecureBiddingApp
           end
         end
 
+        routing.on 'award' do
+          routing.post do
+            require_login!(routing)
+            require_email_verified!(routing)
+            handle_award_bid(routing, project_id)
+          end
+        end
+
+        routing.on 'request_payment' do
+          routing.post do
+            require_login!(routing)
+            require_email_verified!(routing)
+            handle_request_payment(routing, project_id)
+          end
+        end
+
+        routing.on 'process_payment' do
+          routing.post do
+            require_login!(routing)
+            require_email_verified!(routing)
+            handle_process_payment(routing, project_id)
+          end
+        end
+
+        routing.on 'acknowledge_payment' do
+          routing.post do
+            require_login!(routing)
+            require_email_verified!(routing)
+            handle_acknowledge_payment(routing, project_id)
+          end
+        end
+
         routing.on 'memberships' do
           routing.post do
             require_login!(routing)
@@ -695,8 +727,13 @@ module SecureBiddingApp
         data['milestones'] = milestone_payload['milestones'] || []
       end
 
+      if project.allowed?('view_bids')
+        bid_payload = FetchProjectBidSubmissions.new(App.config).call(project.id, auth_token: token)
+        data['bids'] = bid_payload['bid_submissions'] || []
+      end
+
       Project.from_hash(data)
-    rescue FetchProjectBidCount::ServiceError, FetchProjectMilestones::ServiceError => e
+    rescue FetchProjectBidCount::ServiceError, FetchProjectMilestones::ServiceError, FetchProjectBidSubmissions::ServiceError => e
       App.logger.warn "Project workspace enrichment failed: #{e.message}"
       Project.from_hash(data)
     end
@@ -767,8 +804,7 @@ module SecureBiddingApp
         state: routing.params['state'].to_s.strip,
         bidding_deadline: routing.params['bidding_deadline'].to_s.strip,
         nacl_public_key: routing.params['nacl_public_key'].to_s.strip,
-        nacl_encrypted_private_key: routing.params['nacl_encrypted_private_key'].to_s.strip,
-        project_passphrase: routing.params['project_passphrase'].to_s.strip  # Client-side only, not sent to API
+        nacl_encrypted_private_key: routing.params['nacl_encrypted_private_key'].to_s.strip
       )
 
       if validation.failure?
@@ -876,6 +912,9 @@ module SecureBiddingApp
         contractor_alias: validated[:contractor_alias],
         encrypted_bid_amount: validated[:encrypted_bid_amount],
         encrypted_proposal_text: validated[:encrypted_proposal_text],
+        encrypted_document: routing.params['encrypted_document'].to_s.strip,
+        document_file_name: routing.params['document_file_name'].to_s.strip,
+        document_file_hash: routing.params['document_file_hash'].to_s.strip,
         auth_token: @current_account['token']
       )
 
@@ -893,6 +932,51 @@ module SecureBiddingApp
       flash.now[:error] = api_error_message(e, 'Failed to submit bid')
       response.status = e.status.to_i
       view :project_detail, locals: project_detail_locals(project_id)
+    end
+
+    def handle_award_bid(routing, project_id)
+      bid_submission_id = routing.params['bid_submission_id'].to_s
+      AwardProjectBid.new(App.config).call(
+        project_id: project_id,
+        bid_submission_id: bid_submission_id,
+        awarded_bid_amount_cents: routing.params['awarded_bid_amount_cents'].to_s.strip,
+        auth_token: get_auth_token
+      )
+      flash[:notice] = 'Bidder selected. Project is now in progress.'
+      routing.redirect "/projects/#{project_id}"
+    rescue AwardProjectBid::AuthorizationError, AwardProjectBid::ServiceError => e
+      flash[:error] = e.message
+      routing.redirect "/projects/#{project_id}"
+    end
+
+    def handle_request_payment(routing, project_id)
+      RequestProjectPayment.new(App.config).call(project_id: project_id, auth_token: get_auth_token)
+      flash[:notice] = 'Payment request sent to the project owner.'
+      routing.redirect "/projects/#{project_id}"
+    rescue RequestProjectPayment::AuthorizationError, RequestProjectPayment::ServiceError => e
+      flash[:error] = e.message
+      routing.redirect "/projects/#{project_id}"
+    end
+
+    def handle_process_payment(routing, project_id)
+      ProcessProjectPayment.new(App.config).call(
+        project_id: project_id,
+        auth_token: get_auth_token
+      )
+      flash[:notice] = 'Payment sent. Waiting for the freelancer to accept.'
+      routing.redirect "/projects/#{project_id}"
+    rescue ProcessProjectPayment::AuthorizationError, ProcessProjectPayment::ServiceError => e
+      flash[:error] = e.message
+      routing.redirect "/projects/#{project_id}"
+    end
+
+    def handle_acknowledge_payment(routing, project_id)
+      AcknowledgeProjectPayment.new(App.config).call(project_id: project_id, auth_token: get_auth_token)
+      flash[:notice] = 'Payment accepted. Project closed.'
+      routing.redirect "/projects/#{project_id}"
+    rescue AcknowledgeProjectPayment::AuthorizationError, AcknowledgeProjectPayment::ServiceError => e
+      flash[:error] = e.message
+      routing.redirect "/projects/#{project_id}"
     end
 
     def handle_registration_post(routing)

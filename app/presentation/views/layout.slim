@@ -35,3 +35,7 @@ html
             form method="post" action="/account/#{@current_account['username']}/resend_verification" class="mb-0"
               button type="submit" class="btn btn-sm btn-primary" Send verification email
         == yield
+    footer class="border-top mt-5 py-4 text-center text-muted small"
+      p class="mb-0"
+        | This site is part of a Service Security course at National Tsing Hua University.
+        |  It is for educational demonstration only and is not intended for commercial use or real-life procurement.

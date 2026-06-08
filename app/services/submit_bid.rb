@@ -11,7 +11,7 @@ module SecureBiddingApp
       @config = config
     end
 
-    def call(project_id:, bidder_account_id:, contractor_alias:, encrypted_bid_amount:, encrypted_proposal_text:, auth_token:)
+    def call(project_id:, bidder_account_id:, contractor_alias:, encrypted_bid_amount:, encrypted_proposal_text:, auth_token:, encrypted_document: nil, document_file_name: nil, document_file_hash: nil)
       validate_params(bidder_account_id, contractor_alias, encrypted_bid_amount, encrypted_proposal_text)
       encrypted_bid = parse_encrypted_payload(encrypted_bid_amount, 'encrypted bid amount')
       encrypted_proposal = parse_encrypted_payload(encrypted_proposal_text, 'encrypted proposal text')
@@ -27,6 +27,12 @@ module SecureBiddingApp
         encrypted_bid_amount: encrypted_bid,
         encrypted_proposal_text: encrypted_proposal
       }
+
+      if encrypted_document && !encrypted_document.to_s.strip.empty?
+        body[:encrypted_document] = parse_encrypted_payload(encrypted_document, 'encrypted document')
+        body[:document_file_name] = document_file_name
+        body[:document_file_hash] = document_file_hash
+      end
 
       client.post("/projects/#{project_id}/bids", body)
     rescue ApiClient::ApiError => e
