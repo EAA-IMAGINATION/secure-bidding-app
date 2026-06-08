@@ -2,12 +2,7 @@ div class="row justify-content-center mt-4"
   div class="col-lg-11"
     a href="/" class="btn btn-outline-secondary mb-3" Back to Home
 
-    div class="d-flex justify-content-between align-items-center mb-3"
-      h2 Users
-      a href="/register" class="btn btn-outline-primary" Register (self-service)
-
-    p class="text-muted mb-4"
-      | New accounts register themselves. Admins can promote existing accounts to admin or assign capability roles below.
+    h2.mb-4 Users
 
     - if users && users.size > 0
       div class="table-responsive"

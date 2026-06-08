@@ -123,8 +123,8 @@ module SecureBiddingApp
       routing.on 'users' do
         routing.on 'new' do
           routing.get do
-            flash[:notice] = 'New accounts register themselves — use Register or promote an existing user below.'
-            routing.redirect '/register'
+            require_login!(routing)
+            routing.redirect '/admin/users'
           end
         end
 

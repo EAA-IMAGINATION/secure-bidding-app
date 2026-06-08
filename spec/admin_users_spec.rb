@@ -75,16 +75,21 @@ describe 'Admin users management' do
     _(last_response.body).wont_include 'Admin Users'
   end
 
-  it 'redirects legacy create-user URL to self-service registration' do
+  it 'redirects legacy create-user URL to the users list' do
     login_as_admin
+
+    stub_request(:get, "#{base_url}/accounts")
+      .with(headers: { 'Authorization' => "Bearer #{token}" })
+      .to_return(status: 200, body: { accounts: [] }.to_json,
+                 headers: { 'Content-Type' => 'application/json' })
 
     get '/admin/users/new'
 
     _(last_response.status).must_equal 302
-    _(last_response.location).must_equal '/register'
+    _(last_response.location).must_equal '/admin/users'
   end
 
-  it 'lists users without a create-user form' do
+  it 'lists users without registration or create-user controls' do
     login_as_admin
 
     stub_request(:get, "#{base_url}/accounts")
@@ -104,8 +109,8 @@ describe 'Admin users management' do
 
     _(last_response.status).must_equal 200
     _(last_response.body).must_include 'Users'
-    _(last_response.body).must_include 'Register (self-service)'
     _(last_response.body).wont_include 'Create New User'
+    _(last_response.body).wont_include 'Register (self-service)'
     _(last_response.body).wont_include 'Temporary password'
   end
 
