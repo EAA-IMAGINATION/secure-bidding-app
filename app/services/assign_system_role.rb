@@ -5,7 +5,7 @@ module SecureBiddingApp
   class AssignSystemRole
     class ValidationError < StandardError; end
     class ServiceError < StandardError; end
-    VALID_ROLES = %w[admin member system_admin project_owner bidder].freeze
+    VALID_ROLES = %w[admin member].freeze
 
     def initialize(config)
       @config = config

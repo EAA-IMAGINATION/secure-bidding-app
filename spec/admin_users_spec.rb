@@ -75,18 +75,20 @@ describe 'Admin users management' do
     _(last_response.body).wont_include 'Admin Users'
   end
 
-  it 'redirects legacy create-user URL to the users list' do
+  it 'returns 404 for removed admin user management routes' do
     login_as_admin
 
-    stub_request(:get, "#{base_url}/accounts")
-      .with(headers: { 'Authorization' => "Bearer #{token}" })
-      .to_return(status: 200, body: { accounts: [] }.to_json,
-                 headers: { 'Content-Type' => 'application/json' })
-
     get '/admin/users/new'
+    _(last_response.status).must_equal 404
 
-    _(last_response.status).must_equal 302
-    _(last_response.location).must_equal '/admin/users'
+    post '/admin/users', username: 'someone', email: 'someone@example.com'
+    _(last_response.status).must_equal 404
+
+    get '/admin/users/member-456/edit'
+    _(last_response.status).must_equal 404
+
+    post '/admin/users/member-456/delete'
+    _(last_response.status).must_equal 404
   end
 
   it 'lists users without registration or create-user controls' do
@@ -112,6 +114,8 @@ describe 'Admin users management' do
     _(last_response.body).wont_include 'Create New User'
     _(last_response.body).wont_include 'Register (self-service)'
     _(last_response.body).wont_include 'Temporary password'
+    _(last_response.body).wont_include '/edit'
+    _(last_response.body).wont_include 'Delete'
   end
 
   it 'promotes an existing account to admin via roles form' do

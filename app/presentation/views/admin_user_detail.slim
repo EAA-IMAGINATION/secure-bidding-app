@@ -34,9 +34,6 @@ div class="row justify-content-center mt-4"
               span class="text-muted" No roles assigned
 
         div class="d-flex gap-2 mb-4"
-          a href="/admin/users/#{user['id']}/edit" class="btn btn-warning" Edit User
-          a href="/admin/users/#{user['id']}/roles" class="btn btn-primary" Promote to Admin
-          form method="post" action="/admin/users/#{user['id']}/delete" class="d-inline" data-confirm-username="#{user['username']}"
-            button type="submit" class="btn btn-danger" Delete User
+          a href="/admin/users/#{user['id']}/roles" class="btn btn-primary" Promote
     - else
       div class="alert alert-danger" User not found
