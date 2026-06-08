@@ -123,8 +123,8 @@ module SecureBiddingApp
       routing.on 'users' do
         routing.on 'new' do
           routing.get do
-            require_login!(routing)
-            handle_admin_new_user_form(routing)
+            flash[:notice] = 'New accounts register themselves — use Register or promote an existing user below.'
+            routing.redirect '/register'
           end
         end
 
@@ -170,11 +170,6 @@ module SecureBiddingApp
           routing.get do
             require_login!(routing)
             handle_admin_users_list(routing)
-          end
-
-          routing.post do
-            require_login!(routing)
-            handle_admin_create_user(routing)
           end
         end
       end
@@ -1135,63 +1130,6 @@ module SecureBiddingApp
       response.status = 500
       flash.now[:error] = e.message
       view :admin_user_detail, locals: { user: nil, current_account: @current_account }
-    end
-
-    def handle_admin_new_user_form(routing)
-      unless can_manage_accounts?(@current_account)
-        response.status = 403
-        flash.now[:error] = 'Only admins can create users'
-        return routing.redirect '/'
-      end
-
-      view :admin_user_form,
-           locals: { user: nil, current_account: @current_account, is_edit: false }
-    end
-
-    def handle_admin_create_user(routing)
-      unless can_manage_accounts?(@current_account)
-        response.status = 403
-        flash.now[:error] = 'Only admins can create users'
-        return routing.redirect '/'
-      end
-
-      validation = Forms::AdminUser.new.call(
-        username: routing.params['username'].to_s.strip,
-        email: routing.params['email'].to_s.strip
-      )
-
-      if validation.failure?
-        flash.now[:error] = validation.errors.to_h.map { |k, v| "#{k} #{v.join(', ')}" }.join('; ')
-        response.status = 400
-        return view :admin_user_form,
-             locals: { user: nil, current_account: @current_account, is_edit: false }
-      end
-
-      validated = validation.to_h
-
-      result = CreateAccount.new(App.config).call(
-        username: validated[:username],
-        email: validated[:email],
-        password: validated[:password]
-      )
-
-      flash[:notice] = "User #{validated[:username]} created successfully (ID: #{result['id']})"
-      routing.redirect "/admin/users/#{result['id']}"
-    rescue CreateAccount::ValidationError => e
-      flash.now[:error] = e.message
-      response.status = 400
-      view :admin_user_form,
-           locals: { user: nil, current_account: @current_account, is_edit: false }
-    rescue CreateAccount::UnavailableError => e
-      flash.now[:error] = e.message
-      response.status = 422
-      view :admin_user_form,
-           locals: { user: nil, current_account: @current_account, is_edit: false }
-    rescue ApiClient::ApiError => e
-      flash.now[:error] = api_error_message(e, 'Failed to create user')
-      response.status = e.status.to_i
-      view :admin_user_form,
-           locals: { user: nil, current_account: @current_account, is_edit: false }
     end
 
     def handle_admin_edit_user_get(routing, user_id)

@@ -8,15 +8,29 @@ require_relative 'app'
 
 module SecureBiddingApp
   class App < Roda
+    GOOGLE_OAUTH_URL_DEFAULT = 'https://accounts.google.com/o/oauth2/v2/auth'
+    GOOGLE_TOKEN_URL_DEFAULT = 'https://oauth2.googleapis.com/token'
+    GOOGLE_SCOPE_DEFAULT = 'openid email profile'
+
     def google_oauth_url(config, state)
       query = URI.encode_www_form(
         client_id: config.GOOGLE_CLIENT_ID,
         redirect_uri: config.GOOGLE_REDIRECT_URI,
         response_type: 'code',
-        scope: config.GOOGLE_SCOPE,
+        scope: google_scope(config),
         state: state
       )
-      "#{config.GOOGLE_OAUTH_URL}?#{query}"
+      "#{google_oauth_url_base(config)}?#{query}"
+    end
+
+    def google_oauth_url_base(config)
+      value = config.GOOGLE_OAUTH_URL.to_s.strip
+      value.empty? ? GOOGLE_OAUTH_URL_DEFAULT : value
+    end
+
+    def google_scope(config)
+      value = config.GOOGLE_SCOPE.to_s.strip
+      value.empty? ? GOOGLE_SCOPE_DEFAULT : value
     end
 
     def sso_login_url(session)

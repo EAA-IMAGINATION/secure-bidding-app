@@ -23,7 +23,7 @@ module SecureBiddingApp
 
     def exchange_code_for_id_token(code)
       response = HTTP.headers(accept: 'application/json')
-        .post(@config.GOOGLE_TOKEN_URL, form: token_params(code))
+        .post(google_token_url, form: token_params(code))
       raise UnauthorizedError unless response.status.success?
 
       JSON.parse(response.to_s).fetch('id_token')
@@ -39,6 +39,11 @@ module SecureBiddingApp
         grant_type: 'authorization_code',
         redirect_uri: @config.GOOGLE_REDIRECT_URI
       }
+    end
+
+    def google_token_url
+      value = @config.GOOGLE_TOKEN_URL.to_s.strip
+      value.empty? ? App::GOOGLE_TOKEN_URL_DEFAULT : value
     end
 
     def authorize_with_api(id_token)

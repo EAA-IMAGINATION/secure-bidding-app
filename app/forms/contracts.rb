@@ -127,16 +127,7 @@ module SecureBiddingApp
       end
     end
 
-    # Admin User form validation schema (Create User)
-    class AdminUser < Dry::Validation::Contract
-      params do
-        required(:username).filled(:string)
-        required(:email).filled(:string, format?: /\A[\w+\-.]+@[a-z\d\-.]+\.[a-z]+\z/i)
-        required(:password).filled(:string, min_size?: 8)
-      end
-    end
-
-    # Admin User edit form validation schema
+    # Admin user edit form validation schema
     class AdminUserEdit < Dry::Validation::Contract
       params do
         required(:email).filled(:string, format?: /\A[\w+\-.]+@[a-z\d\-.]+\.[a-z]+\z/i)

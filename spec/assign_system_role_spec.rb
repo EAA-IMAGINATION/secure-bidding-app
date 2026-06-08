@@ -18,7 +18,18 @@ describe 'AssignSystemRole Service' do
     _(response['role']).must_equal 'system_admin'
   end
 
-  it 'rejects unsupported legacy roles' do
-    _ { service.call(account_id: '123', system_role: 'admin') }.must_raise AssignSystemRole::ValidationError
+  it 'allows promoting an account to admin' do
+    stub_request(:post, "#{base_url}/accounts/123/system_roles")
+      .with(body: { role: 'admin' }.to_json)
+      .to_return(status: 201, body: { account_id: '123', role: 'admin', status: 'assigned' }.to_json,
+                 headers: { 'Content-Type' => 'application/json' })
+
+    response = service.call(account_id: '123', system_role: 'admin')
+
+    _(response['role']).must_equal 'admin'
+  end
+
+  it 'rejects unknown roles' do
+    _ { service.call(account_id: '123', system_role: 'superuser') }.must_raise AssignSystemRole::ValidationError
   end
 end
