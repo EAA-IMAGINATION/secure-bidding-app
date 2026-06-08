@@ -178,5 +178,5 @@ Development gems:
 
 ---
 
-**Status:** Week 1 implementation in progress  
-**Branch:** `1-authenticated-sessions`
+**Status:** Demo-ready — see [../PROJECT_STATUS.md](../PROJECT_STATUS.md) for the end-to-end flow.  
+**Default branch:** `main`
