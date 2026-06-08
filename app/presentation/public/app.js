@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', function() {
   initProjectFormCrypto();
   initBidFormCrypto();
   initProjectRevealPanels();
+  initBidDecryption();
 });
 
 // === Cryptography Helpers ===
@@ -81,6 +82,33 @@ const CryptoUtils = {
     };
   },
 
+  // Automatically wrap a project private key with a random NaCl secretbox key/nonce.
+  wrapPrivateKey(secretKey) {
+    const wrapKey = nacl.randomBytes(nacl.secretbox.keyLength);
+    const nonce = nacl.randomBytes(nacl.secretbox.nonceLength);
+    const ciphertext = nacl.secretbox(secretKey, nonce, wrapKey);
+
+    return {
+      key: this.toBase64(wrapKey),
+      nonce: this.toBase64(nonce),
+      ciphertext: this.toBase64(ciphertext)
+    };
+  },
+
+  unwrapPrivateKey(wrapped) {
+    const data = typeof wrapped === 'string' ? JSON.parse(wrapped) : wrapped;
+    const wrapKey = this.fromBase64(data.key);
+    const nonce = this.fromBase64(data.nonce);
+    const ciphertext = this.fromBase64(data.ciphertext);
+    const secretKey = nacl.secretbox.open(ciphertext, nonce, wrapKey);
+
+    if (!secretKey) {
+      throw new Error('Failed to unlock project private key');
+    }
+
+    return secretKey;
+  },
+
   // Encrypt secret key with password-derived key using NaCl secretbox
   async encryptPrivateKeyWithPassword(secretKey, password) {
     const derived = await this.deriveKeyFromPassword(password);
@@ -110,6 +138,23 @@ const CryptoUtils = {
     }
     
     return secretKey;
+  },
+
+  decryptFromProject(secretKey, envelope) {
+    if (!envelope || typeof envelope !== 'object') {
+      throw new Error('Invalid encrypted envelope');
+    }
+
+    const ephPub = this.fromBase64(envelope.ephemeralPublicKey);
+    const nonce = this.fromBase64(envelope.nonce);
+    const cipher = this.fromBase64(envelope.ciphertext);
+    const opened = nacl.box.open(cipher, nonce, ephPub, secretKey);
+
+    if (!opened) {
+      throw new Error('Failed to decrypt bid payload');
+    }
+
+    return new TextDecoder().decode(opened);
   },
 
   // Encrypt bid amount or proposal using project public key
@@ -203,25 +248,9 @@ const AtomicReveal = {
       const revealBtn = document.getElementById('reveal-bids-btn');
       
       if (timeLeft <= 0) {
-        // Deadline passed - enable reveal and check integrity
-        container.innerHTML = '<span class="badge bg-success">✓ Bidding Closed</span>';
-        
-        // Enable reveal button if integrity snapshot is available
-        if (revealBtn) {
-          revealBtn.disabled = false;
-          revealBtn.classList.remove('disabled');
-          revealBtn.textContent = 'View Decrypted Bids';
-        }
-        
-        // Stop updating countdown
+        container.innerHTML = '<span class="badge bg-success">Bidding closed — revealing bids</span>';
+        initBidDecryption();
         return true;
-      }
-
-      // Bidding still active - keep button locked
-      if (revealBtn) {
-        revealBtn.disabled = true;
-        revealBtn.classList.add('disabled');
-        revealBtn.title = 'Bids cannot be revealed until the bidding deadline passes';
       }
 
       const hours = Math.floor((timeLeft / (1000 * 60 * 60)) % 24);
@@ -312,44 +341,27 @@ function initProjectFormCrypto() {
   const statusDiv = document.getElementById('crypto-status');
   const statusMessage = document.getElementById('crypto-message');
   const submitBtn = document.getElementById('submit-btn');
-  const passphraseField = document.getElementById('project_passphrase');
 
-  passphraseField.addEventListener('input', async function() {
-    const passphrase = this.value.trim();
-    if (passphrase.length < 8) {
-      submitBtn.disabled = true;
-      return;
-    }
+  try {
+    const keyPair = CryptoUtils.generateKeyPair();
+    document.getElementById('nacl_public_key').value = keyPair.publicKey;
+    document.getElementById('nacl_encrypted_private_key').value = JSON.stringify(
+      CryptoUtils.wrapPrivateKey(keyPair.secretKey)
+    );
 
-    try {
-      const keyPair = CryptoUtils.generateKeyPair();
-      document.getElementById('nacl_public_key').value = keyPair.publicKey;
-
-      const encrypted = await CryptoUtils.encryptPrivateKeyWithPassword(
-        keyPair.secretKey,
-        passphrase
-      );
-
-      document.getElementById('nacl_encrypted_private_key').value = JSON.stringify({
-        ciphertext: encrypted.ciphertext,
-        nonce: encrypted.nonce,
-        salt: encrypted.salt
-      });
-
-      statusMessage.textContent = '✓ Cryptographic keys generated and secured with passphrase';
-      statusDiv.classList.remove('alert-info', 'alert-danger');
-      statusDiv.classList.add('alert-success');
-      submitBtn.disabled = false;
-    } catch (err) {
-      console.error('Crypto error:', err);
-      statusMessage.textContent = 'Error: ' + err.message;
-      statusDiv.classList.remove('alert-info', 'alert-success');
-      statusDiv.classList.add('alert-danger');
-      submitBtn.disabled = true;
-    }
-
+    statusMessage.textContent = 'NaCl keypair generated automatically for this project.';
+    statusDiv.classList.remove('alert-info', 'alert-danger');
+    statusDiv.classList.add('alert-success');
     statusDiv.style.display = 'block';
-  });
+    submitBtn.disabled = false;
+  } catch (err) {
+    console.error('Crypto error:', err);
+    statusMessage.textContent = 'Error: ' + err.message;
+    statusDiv.classList.remove('alert-info', 'alert-success');
+    statusDiv.classList.add('alert-danger');
+    statusDiv.style.display = 'block';
+    submitBtn.disabled = true;
+  }
 
   form.addEventListener('submit', function(e) {
     const deadline = new Date(document.getElementById('bidding_deadline').value);
@@ -395,6 +407,15 @@ function initBidFormCrypto() {
 
       const encryptedProposal = CryptoUtils.encryptForProject(projectPublicKey, proposalText);
       document.getElementById('encrypted_proposal_text').value = JSON.stringify(encryptedProposal);
+
+      const fileInput = document.getElementById('bid_document');
+      if (fileInput && fileInput.files && fileInput.files[0]) {
+        const file = fileInput.files[0];
+        const encryptedDoc = await CryptoUtils.encryptFile(file, projectPublicKey);
+        document.getElementById('encrypted_document').value = JSON.stringify(encryptedDoc);
+        document.getElementById('document_file_name').value = file.name;
+        document.getElementById('document_file_hash').value = await CryptoUtils.fileHash(file);
+      }
 
       statusMessage.textContent = '✓ Bid encrypted successfully. Submitting...';
       statusDiv.classList.remove('alert-info', 'alert-danger');
@@ -446,4 +467,72 @@ function initProjectRevealPanels() {
       AtomicReveal.displayIntegrityBadge(integrity, section.dataset.integrityBadge || 'integrity-badge-bids');
     }, 500);
   });
+}
+
+function biddingDeadlinePassed(deadlineISO) {
+  if (!deadlineISO) return false;
+  return new Date(deadlineISO).getTime() <= Date.now();
+}
+
+function decryptBidRows(secretKey) {
+  document.querySelectorAll('[data-bid-row]').forEach(function(row) {
+    const amountEnvelope = JSON.parse(row.dataset.encryptedAmount || '{}');
+    const proposalEnvelope = JSON.parse(row.dataset.encryptedProposal || '{}');
+    const amountCell = row.querySelector('[data-decrypted-amount]');
+    const proposalCell = row.querySelector('[data-decrypted-proposal]');
+    const documentCell = row.querySelector('[data-decrypted-document]');
+
+    const decryptedAmount = CryptoUtils.decryptFromProject(secretKey, amountEnvelope);
+    amountCell.textContent = decryptedAmount;
+    const awardAmountInput = row.querySelector('[data-award-amount-cents]');
+    if (awardAmountInput && /^\d+$/.test(decryptedAmount.trim())) {
+      awardAmountInput.value = decryptedAmount.trim();
+    }
+    proposalCell.textContent = CryptoUtils.decryptFromProject(secretKey, proposalEnvelope);
+
+    const documentEnvelope = row.dataset.encryptedDocument;
+    if (documentCell && documentEnvelope) {
+      const fileName = row.dataset.documentFileName || 'proposal-document';
+      const decrypted = CryptoUtils.decryptFromProject(secretKey, JSON.parse(documentEnvelope));
+      const bytes = Uint8Array.from(decrypted, c => c.charCodeAt(0));
+      const blob = new Blob([bytes]);
+      documentCell.innerHTML = '';
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = fileName;
+      link.textContent = 'Download ' + fileName;
+      link.className = 'btn btn-sm btn-outline-secondary';
+      documentCell.appendChild(link);
+    }
+  });
+}
+
+function initBidDecryption() {
+  const section = document.getElementById('revealed-bids-section');
+  if (!section) return;
+
+  const deadlineISO = section.dataset.deadline;
+  const encryptedPrivateKey = section.dataset.encryptedPrivateKey;
+  const status = document.getElementById('decrypt-bids-status');
+
+  if (!biddingDeadlinePassed(deadlineISO) || !encryptedPrivateKey) {
+    return;
+  }
+
+  try {
+    const secretKey = CryptoUtils.unwrapPrivateKey(encryptedPrivateKey);
+    decryptBidRows(secretKey);
+    if (status) {
+      status.textContent = 'Bidding closed — bids and documents decrypted locally after the deadline.';
+      status.className = 'alert alert-success';
+      status.style.display = 'block';
+    }
+  } catch (err) {
+    console.error('Bid decryption error:', err);
+    if (status) {
+      status.textContent = err.message || 'Could not decrypt bids after the deadline.';
+      status.className = 'alert alert-danger';
+      status.style.display = 'block';
+    }
+  }
 }

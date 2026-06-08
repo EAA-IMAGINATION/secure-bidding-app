@@ -1,5 +1,7 @@
 # Secure Bidding App
 
+Hub-wide goal and progress: [../PROJECT_STATUS.md](../PROJECT_STATUS.md).
+
 A secure platform for transparent bidding on projects.
 This is a server-rendered web frontend built with Roda and Slim.
 
@@ -7,7 +9,7 @@ This is a server-rendered web frontend built with Roda and Slim.
 
 ### Prerequisites
 
-- Ruby 3.3.0 (see `.ruby-version`)
+- Ruby 4.0.2 (see `.ruby-version`)
 - Bundler
 - The Secure Bidding API running on `http://localhost:3000/api/v1`
 

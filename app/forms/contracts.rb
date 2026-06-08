@@ -46,7 +46,6 @@ module SecureBiddingApp
         required(:bidding_deadline).filled(:string)
         required(:nacl_public_key).filled(:string)
         required(:nacl_encrypted_private_key).filled(:string)
-        required(:project_passphrase).filled(:string, min_size?: 8)  # SEC-FT-01: Required with min 8 chars
       end
 
       rule(:bidding_deadline) do
@@ -75,8 +74,8 @@ module SecureBiddingApp
 
         begin
           parsed = JSON.parse(value)
-          unless parsed.is_a?(Hash) && parsed['ciphertext'] && parsed['nonce'] && parsed['salt']
-            key.failure('must contain ciphertext, nonce, and salt')
+          unless parsed.is_a?(Hash) && parsed['ciphertext'] && parsed['nonce'] && parsed['key']
+            key.failure('must contain ciphertext, nonce, and key')
           end
         rescue JSON::ParserError
           key.failure('must be valid JSON with ciphertext, nonce, and salt')

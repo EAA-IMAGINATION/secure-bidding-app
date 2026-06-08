@@ -13,7 +13,11 @@ module SecureBiddingApp
       'manage_owners' => 'manage_memberships',
       'is_owner' => 'manage_memberships',
       'view_bid_count' => 'view_bid_count',
-      'manage_milestones' => 'manage_milestones'
+      'manage_milestones' => 'manage_milestones',
+      'award_bid' => 'award_bid',
+      'request_payment' => 'request_payment',
+      'process_payment' => 'process_payment',
+      'acknowledge_payment' => 'acknowledge_payment'
     }.freeze
 
     def self.from_hash(data)
