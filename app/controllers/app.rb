@@ -688,11 +688,93 @@ module SecureBiddingApp
       end
 
       projects = FetchProjects.new(App.config).call(auth_token: get_auth_token)
-      view :my_projects, locals: { current_account: @current_account, projects: projects }
+      buckets = partition_my_projects(projects)
+      filter = routing.params['filter'].to_s.strip
+      filter = 'all' unless %w[all owned freelancer closed].include?(filter)
+
+      view :my_projects,
+           locals: {
+             current_account: @current_account,
+             projects: projects,
+             owned_projects: buckets[:owned],
+             freelancer_projects: buckets[:freelancer],
+             closed_owned_projects: buckets[:closed_owned],
+             closed_freelancer_projects: buckets[:closed_freelancer],
+             filter: filter
+           }
     rescue FetchProjects::ServiceError => e
       flash.now[:error] = "Failed to fetch your projects: #{e.message}"
       response.status = 500
-      view :my_projects, locals: { current_account: @current_account, projects: [] }
+      view :my_projects,
+           locals: {
+             current_account: @current_account,
+             projects: [],
+             owned_projects: [],
+             freelancer_projects: [],
+             closed_owned_projects: [],
+             closed_freelancer_projects: [],
+             filter: 'all'
+           }
+    end
+
+    def partition_my_projects(projects)
+      owned = []
+      freelancer = []
+
+      (projects || []).each do |project|
+        owned << project if project_owned?(project)
+        freelancer << project if project_freelancer?(project)
+      end
+
+      {
+        owned: owned,
+        freelancer: freelancer,
+        closed_owned: owned.select { |project| project_closed?(project) },
+        closed_freelancer: freelancer.select { |project| project_closed?(project) }
+      }
+    end
+
+    def project_owned?(project)
+      allowed?(project, 'manage_memberships') || allowed?(project, 'manage_owners')
+    end
+
+    def project_freelancer?(project)
+      allowed?(project, 'view_as_awarded_bidder')
+    end
+
+    def project_closed?(project)
+      project_state(project) == 'closed'
+    end
+
+    def project_state(project)
+      if project.respond_to?(:[])
+        project['state'].to_s
+      else
+        project.to_s
+      end
+    end
+
+    def project_state_badge_class(state)
+      case state.to_s
+      when 'saved' then 'bg-primary'
+      when 'published' then 'bg-success'
+      when 'in_progress' then 'bg-info text-dark'
+      when 'payment_pending' then 'bg-warning text-dark'
+      when 'closed' then 'bg-secondary'
+      else 'bg-light text-dark'
+      end
+    end
+
+    def project_relationship_label(project, fallback = 'Owner')
+      if project_owned?(project) && project_freelancer?(project)
+        'Owner, Freelancer'
+      elsif project_freelancer?(project)
+        'Freelancer'
+      elsif project_owned?(project)
+        'Owner'
+      else
+        fallback
+      end
     end
 
     def fetch_project_detail(project_id)

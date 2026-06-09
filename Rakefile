@@ -79,7 +79,10 @@ task :spec do
     'spec/reset_password_spec.rb ' \
     'spec/security_features_spec.rb ' \
     'spec/signed_message_spec.rb ' \
-    'spec/client_side_security_spec.rb'
+    'spec/client_side_security_spec.rb ' \
+    'spec/account_profile_spec.rb ' \
+    'spec/my_projects_spec.rb ' \
+    'spec/fetch_projects_spec.rb'
   )
 end
 

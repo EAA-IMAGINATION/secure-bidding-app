@@ -1,36 +1,51 @@
+- filter ||= 'all'
+- owned_projects ||= []
+- freelancer_projects ||= []
+- closed_owned_projects ||= []
+- closed_freelancer_projects ||= []
+
 .container.mt-5
   .row
     .col-12
-      h1.mb-4 Projects
+      h1.mb-3 My Projects
+      p.text-muted.mb-4
+        | Review projects you own, projects where you are the awarded freelancer, and completed work.
 
-      - if projects && projects.length > 0
-        .table-responsive
-          table.table.table-hover
-            thead
-              tr
-                th Project Title
-                th Budget
-                th State
-                th Actions
-            tbody
-              - projects.each do |project|
-                tr
-                  td
-                    a href="/projects/#{project['id']}"
-                      = project['title']
-                  td
-                    = project['budget_cents'] ? "$#{(project['budget_cents'] / 100.0).round(2)}" : "N/A"
-                  td
-                    .badge class=("bg-primary" if project['state'] == 'saved') class=("bg-success" if project['state'] == 'published')
-                      = project['state'] || 'Unknown'
-                  td
-                    .btn-group role="group"
-                      a.btn.btn-sm.btn-info href="/projects/#{project['id']}" View
-                      - if project && allowed?(project, 'edit')
-                        a.btn.btn-sm.btn-warning href="/projects/#{project['id']}/edit" Edit
-                      - if project['state'] == 'published' && current_account && allowed?(project, 'submit_bid')
-                        a.btn.btn-sm.btn-primary href="/projects/#{project['id']}" Bid
-      - else
-        .alert.alert-info
-          p No projects are available yet.
-          a.btn.btn-primary href="/projects/new" Create New Project
+      ul.nav.nav-pills.mb-4
+        li.nav-item
+          a.nav-link class=("active" if filter == 'all') href="/projects/my?filter=all" All
+        li.nav-item
+          a.nav-link class=("active" if filter == 'owned') href="/projects/my?filter=owned" Owned
+        li.nav-item
+          a.nav-link class=("active" if filter == 'freelancer') href="/projects/my?filter=freelancer" Freelancer
+        li.nav-item
+          a.nav-link class=("active" if filter == 'closed') href="/projects/my?filter=closed" Closed
+
+      - if filter == 'all' || filter == 'owned'
+        h2.h4.mt-4 Owned projects
+        - if owned_projects.any?
+          == render('my_projects_table', locals: { project_rows: owned_projects, relationship_label: 'Owner' })
+        - else
+          .alert.alert-light.border No owned projects yet.
+          - if can_create_projects?(@current_account)
+            a.btn.btn-primary href="/projects/new" Create New Project
+
+      - if filter == 'all' || filter == 'freelancer'
+        h2.h4.mt-5 Freelancer projects
+        - if freelancer_projects.any?
+          == render('my_projects_table', locals: { project_rows: freelancer_projects, relationship_label: 'Freelancer' })
+        - else
+          .alert.alert-light.border No freelancer projects yet. Bid on a published project to get started.
+
+      - if filter == 'closed'
+        h2.h4.mt-4 Closed as owner
+        - if closed_owned_projects.any?
+          == render('my_projects_table', locals: { project_rows: closed_owned_projects, relationship_label: 'Owner' })
+        - else
+          .alert.alert-light.border No closed owner projects yet.
+
+        h2.h4.mt-5 Completed as freelancer
+        - if closed_freelancer_projects.any?
+          == render('my_projects_table', locals: { project_rows: closed_freelancer_projects, relationship_label: 'Freelancer' })
+        - else
+          .alert.alert-light.border No completed freelancer projects yet.
