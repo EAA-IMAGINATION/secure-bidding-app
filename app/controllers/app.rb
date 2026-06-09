@@ -975,6 +975,7 @@ module SecureBiddingApp
 
       # Validate
       validation = Forms::BidSubmission.new.call(
+        project_id: project_id,
         contractor_alias: routing.params['contractor_alias'].to_s.strip,
         encrypted_bid_amount: routing.params['encrypted_bid_amount'].to_s.strip,
         encrypted_proposal_text: routing.params['encrypted_proposal_text'].to_s.strip
