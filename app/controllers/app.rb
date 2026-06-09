@@ -4,6 +4,7 @@ require 'rack/method_override'
 require 'roda'
 require 'slim'
 require 'slim/include'
+require 'uri'
 
 module SecureBiddingApp
   module RoutingHelpers
@@ -56,7 +57,7 @@ module SecureBiddingApp
     route('register') do |routing|
       routing.on 'verify' do
         routing.on String do |token|
-          routing.get { routing.redirect "/verify-email?token=#{Rack::Utils.escape_path(token)}" }
+          routing.get { routing.redirect "/verify-email?token=#{URI.encode_www_form_component(token)}" }
         end
       end
 

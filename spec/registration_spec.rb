@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'spec_helper'
+require 'uri'
 require 'webmock/minitest'
 require 'ostruct'
 
@@ -104,6 +105,16 @@ describe 'Week 12 Registration Flow' do
 
       _(last_response.status).must_equal 302
       _(last_response.headers['Location']).must_include '/verify-email?token='
+    end
+
+    it 'URL-encodes tokens containing plus signs in the redirect' do
+      token = 'abc+defghi=='
+      get "/register/verify/#{token}"
+
+      location = last_response.headers['Location']
+      _(location).must_include '%2B'
+      query_token = URI.decode_www_form_component(location.split('token=', 2).last)
+      _(query_token).must_equal token
     end
   end
 

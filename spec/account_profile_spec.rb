@@ -74,6 +74,34 @@ describe 'Account profile flow' do
     _(last_response.body).wont_include 'Resend verification'
   end
 
+  it 'shows all profile roles including activity-derived roles' do
+    login_as
+    stub_request(:get, "#{base_url}/accounts/#{account_id}")
+      .to_return(
+        status: 200,
+        body: {
+          id: account_id,
+          username: account_username,
+          email: account_email,
+          email_verified: true,
+          system_role: 'member',
+          system_roles: [],
+          profile_roles: %w[member project_owner bidder freelancer]
+        }.to_json,
+        headers: { 'Content-Type' => 'application/json' }
+      )
+
+    get '/account/demo-user'
+
+    _(last_response.status).must_equal 200
+    _(last_response.body).must_include 'Roles'
+    _(last_response.body).must_include 'member'
+    _(last_response.body).must_include 'project_owner'
+    _(last_response.body).must_include 'bidder'
+    _(last_response.body).must_include 'freelancer'
+    _(last_response.body).wont_include 'System roles'
+  end
+
   it 'hides the verification banner when the session is stale but the API says verified' do
     login_as(email_verified: false)
     stub_profile_get(email_verified: true)

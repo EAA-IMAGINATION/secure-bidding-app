@@ -1,8 +1,10 @@
 - account ||= @current_account
-- assigned_roles = (account&.dig('include', 'system_roles') || account&.dig('system_roles') || []).dup
-- column_role = account&.dig('system_role')
-- assigned_roles << column_role if column_role && !assigned_roles.include?(column_role)
-- system_roles = assigned_roles.sort.uniq
+- profile_roles = account&.dig('profile_roles')
+- if profile_roles.nil? || profile_roles.empty?
+  - assigned_roles = (account&.dig('include', 'system_roles') || account&.dig('system_roles') || []).dup
+  - column_role = account&.dig('system_role')
+  - assigned_roles << column_role if column_role && !assigned_roles.include?(column_role)
+  - profile_roles = assigned_roles.sort.uniq
 - verified = account_email_verified?(account)
 
 div class="row justify-content-center mt-4"
@@ -32,12 +34,12 @@ div class="row justify-content-center mt-4"
                   button type="submit" class="btn btn-sm btn-outline-primary" Send verification email
               p class="text-muted small mb-0 mt-2" Open the link in your email to verify this address.
 
-          dt class="col-sm-3 text-muted" System roles
+          dt class="col-sm-3 text-muted" Roles
           dd class="col-sm-9 mb-0"
-            - if system_roles.empty?
-              span class="text-muted" No system roles assigned
+            - if profile_roles.empty?
+              span class="text-muted" No roles assigned
             - else
-              - system_roles.each do |role|
+              - profile_roles.each do |role|
                 span class="badge bg-secondary me-1"
                   = role
 
