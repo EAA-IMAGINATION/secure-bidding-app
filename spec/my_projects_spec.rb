@@ -93,6 +93,37 @@ describe 'My projects page' do
     _(last_response.body).must_include 'href="/projects/my?filter=closed"'
   end
 
+  it 'shows in-progress and payment-pending projects in the active filter' do
+    login_as_owner
+    stub_owner_profile
+
+    stub_request(:get, "#{base_url}/projects")
+      .with(headers: { 'Authorization' => "Bearer #{token}" })
+      .to_return(
+        status: 200,
+        body: {
+          projects: [
+            project_payload(id: 'in-progress-owned', title: 'In Progress Owned', state: 'in_progress', owner: true),
+            project_payload(id: 'payment-pending-freelancer', title: 'Payment Pending Freelancer',
+                            state: 'payment_pending', owner: false, freelancer: true),
+            project_payload(id: 'closed-owned', title: 'Closed Owned', state: 'closed', owner: true)
+          ]
+        }.to_json,
+        headers: { 'Content-Type' => 'application/json' }
+      )
+
+    get '/projects/my?filter=active'
+
+    _(last_response.status).must_equal 200
+    _(last_response.body).must_include 'Active as owner'
+    _(last_response.body).must_include 'Active as freelancer'
+    _(last_response.body).must_include 'In Progress Owned'
+    _(last_response.body).must_include 'In progress'
+    _(last_response.body).must_include 'Payment Pending Freelancer'
+    _(last_response.body).must_include 'Payment pending'
+    _(last_response.body).wont_include 'Closed Owned'
+  end
+
   it 'shows only closed owner and freelancer projects in the closed filter' do
     login_as_owner
     stub_owner_profile

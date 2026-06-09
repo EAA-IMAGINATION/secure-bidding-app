@@ -690,7 +690,7 @@ module SecureBiddingApp
       projects = FetchProjects.new(App.config).call(auth_token: get_auth_token)
       buckets = partition_my_projects(projects)
       filter = routing.params['filter'].to_s.strip
-      filter = 'all' unless %w[all owned freelancer closed].include?(filter)
+      filter = 'all' unless %w[all owned freelancer active closed].include?(filter)
 
       view :my_projects,
            locals: {
@@ -698,6 +698,8 @@ module SecureBiddingApp
              projects: projects,
              owned_projects: buckets[:owned],
              freelancer_projects: buckets[:freelancer],
+             active_owned_projects: buckets[:active_owned],
+             active_freelancer_projects: buckets[:active_freelancer],
              closed_owned_projects: buckets[:closed_owned],
              closed_freelancer_projects: buckets[:closed_freelancer],
              filter: filter
@@ -711,11 +713,15 @@ module SecureBiddingApp
              projects: [],
              owned_projects: [],
              freelancer_projects: [],
+             active_owned_projects: [],
+             active_freelancer_projects: [],
              closed_owned_projects: [],
              closed_freelancer_projects: [],
              filter: 'all'
            }
     end
+
+    ACTIVE_PROJECT_STATES = %w[published in_progress payment_pending].freeze
 
     def partition_my_projects(projects)
       owned = []
@@ -729,9 +735,15 @@ module SecureBiddingApp
       {
         owned: owned,
         freelancer: freelancer,
+        active_owned: owned.select { |project| project_active?(project) },
+        active_freelancer: freelancer.select { |project| project_active?(project) },
         closed_owned: owned.select { |project| project_closed?(project) },
         closed_freelancer: freelancer.select { |project| project_closed?(project) }
       }
+    end
+
+    def project_active?(project)
+      ACTIVE_PROJECT_STATES.include?(project_state(project))
     end
 
     def project_owned?(project)
