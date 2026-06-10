@@ -13,9 +13,25 @@ div class="row justify-content-center mt-4"
               input type="text" class="form-control" id="title" name="title" required="true" placeholder="Enter project title" value="#{project['title']}"
 
             div class="mb-3"
+              label for="description" class="form-label" Project Description
+              textarea class="form-control" id="description" name="description" rows="4" placeholder="Describe the work, goals, and acceptance criteria"
+                = project['description']
+
+            div class="mb-3"
+              label for="required_documents" class="form-label" Required Bid Documents
+              textarea class="form-control" id="required_documents" name="required_documents" rows="3" placeholder="One document per line"
+                = Array(project['required_documents']).join("\n")
+              small class="form-text text-muted" Bidders must upload every listed document before submitting.
+
+            div class="mb-3"
               label for="budget_cents" class="form-label" Budget (in cents)
               input type="number" class="form-control" id="budget_cents" name="budget_cents" required="true" min="0" placeholder="e.g., 120000 for $1200.00" value="#{project['budget_cents']}"
               small class="form-text text-muted" Note: Enter amount in cents (1 dollar = 100 cents)
+
+            div class="mb-3"
+              label for="bidding_deadline" class="form-label" Bidding Deadline
+              - deadline_value = (Time.parse(project['bidding_deadline']).strftime('%Y-%m-%dT%H:%M') rescue '')
+              input type="datetime-local" class="form-control" id="bidding_deadline" name="bidding_deadline" value=deadline_value
 
             div class="mb-3"
               label for="state" class="form-label" Project State
@@ -27,9 +43,8 @@ div class="row justify-content-center mt-4"
                   option value="saved" Save as Draft
                   option value="published" selected="true" Published
 
-            div class="d-flex gap-2"
-              button type="submit" class="btn btn-primary" Update Project
-              form method="post" action="/projects/#{project['id']}/delete" class="d-inline" data-confirm="Are you sure you want to delete this project?"
-                button type="submit" class="btn btn-danger" Delete Project
+            button type="submit" class="btn btn-primary" Update Project
+          form method="post" action="/projects/#{project['id']}/delete" class="mt-2" data-confirm="Are you sure you want to delete this project?"
+            button type="submit" class="btn btn-danger" Delete Project
     - else
       div class="alert alert-danger" Project not found

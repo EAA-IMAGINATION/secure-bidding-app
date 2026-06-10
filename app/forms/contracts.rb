@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'date'
 require 'dry-validation'
 
 module SecureBiddingApp
@@ -41,6 +42,8 @@ module SecureBiddingApp
     class ProjectNew < Dry::Validation::Contract
       params do
         required(:title).filled(:string)
+        optional(:description).maybe(:string)
+        optional(:required_documents).array(:string)
         required(:budget_cents).filled(:integer, gteq?: 0)
         required(:state).filled(:string, included_in?: %w[saved published])
         required(:bidding_deadline).filled(:string)
@@ -79,6 +82,28 @@ module SecureBiddingApp
           end
         rescue JSON::ParserError
           key.failure('must be valid JSON with ciphertext, nonce, and salt')
+        end
+      end
+    end
+
+    # Project edit form validation schema
+    class ProjectEdit < Dry::Validation::Contract
+      params do
+        required(:title).filled(:string)
+        optional(:description).maybe(:string)
+        optional(:required_documents).array(:string)
+        required(:budget_cents).filled(:integer, gteq?: 0)
+        required(:state).filled(:string, included_in?: %w[saved published])
+        optional(:bidding_deadline).maybe(:string)
+      end
+
+      rule(:bidding_deadline) do
+        next if value.to_s.empty?
+
+        begin
+          DateTime.iso8601(value)
+        rescue ArgumentError, TypeError
+          key.failure('must be a valid ISO 8601 date and time')
         end
       end
     end

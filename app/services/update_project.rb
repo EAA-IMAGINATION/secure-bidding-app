@@ -10,7 +10,7 @@ module SecureBiddingApp
       @config = config
     end
 
-    def call(project_id:, title:, budget_cents:, state:, auth_token: nil)
+    def call(project_id:, title:, budget_cents:, state:, description: nil, required_documents: [], bidding_deadline: nil, auth_token: nil)
       validate_params(title, budget_cents, state)
 
       headers = {}
@@ -19,8 +19,11 @@ module SecureBiddingApp
       client = ApiClient.new(@config.API_URL, default_headers: headers)
       body = {
         title: title,
+        description: description,
+        required_documents: required_documents,
         budget_cents: budget_cents,
-        state: state
+        state: state,
+        bidding_deadline: bidding_deadline
       }
 
       client.patch("/projects/#{project_id}", body)

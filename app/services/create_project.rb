@@ -10,7 +10,7 @@ module SecureBiddingApp
       @config = config
     end
 
-    def call(title:, budget_cents:, state: 'saved', bidding_deadline: nil, nacl_public_key: nil, nacl_encrypted_private_key: nil, auth_token: nil)
+    def call(title:, budget_cents:, state: 'saved', description: nil, required_documents: [], bidding_deadline: nil, nacl_public_key: nil, nacl_encrypted_private_key: nil, auth_token: nil)
       validate_params(title, budget_cents, state, bidding_deadline)
 
       headers = {}
@@ -19,6 +19,8 @@ module SecureBiddingApp
       client = ApiClient.new(@config.API_URL, default_headers: headers)
       body = {
         title: title,
+        description: description,
+        required_documents: required_documents,
         budget_cents: budget_cents,
         state: state,
         bidding_deadline: bidding_deadline,

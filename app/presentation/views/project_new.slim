@@ -12,6 +12,15 @@ div class="row justify-content-center mt-4"
             input type="text" class="form-control" id="title" name="title" required=true placeholder="Enter project title"
 
           div class="mb-3"
+            label for="description" class="form-label" Project Description
+            textarea class="form-control" id="description" name="description" rows="4" placeholder="Describe the work, goals, and acceptance criteria"
+
+          div class="mb-3"
+            label for="required_documents" class="form-label" Required Bid Documents
+            textarea class="form-control" id="required_documents" name="required_documents" rows="3" placeholder="One document per line, e.g. Technical proposal"
+            small class="form-text text-muted" Bidders must upload every listed document before submitting.
+
+          div class="mb-3"
             label for="budget_cents" class="form-label" Budget (in cents)
             input type="number" class="form-control" id="budget_cents" name="budget_cents" required=true min="0" placeholder="e.g., 120000 for $1200.00"
             small class="form-text text-muted" Enter amount in cents (1 dollar = 100 cents)
@@ -32,6 +41,6 @@ div class="row justify-content-center mt-4"
 
           div class="mb-3" id="crypto-status" style="display: none;"
             div class="alert alert-info" role="alert"
-              span id="crypto-message" Generating NaCl keypair...
+              span id="crypto-message" Preparing secure bidding...
 
           button type="submit" class="btn btn-primary w-100" id="submit-btn" disabled=true Create Project

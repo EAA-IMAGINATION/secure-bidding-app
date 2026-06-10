@@ -4,6 +4,7 @@ require 'rack/method_override'
 require 'roda'
 require 'slim'
 require 'slim/include'
+require 'time'
 require 'uri'
 
 module SecureBiddingApp
@@ -882,6 +883,8 @@ module SecureBiddingApp
       # Validate
       validation = Forms::ProjectNew.new.call(
         title: routing.params['title'].to_s.strip,
+        description: routing.params['description'].to_s.strip,
+        required_documents: project_required_documents_from_params(routing.params),
         budget_cents: routing.params['budget_cents'].to_s.strip.empty? ? nil : routing.params['budget_cents'].to_s.strip.to_i,
         state: routing.params['state'].to_s.strip,
         bidding_deadline: routing.params['bidding_deadline'].to_s.strip,
@@ -899,6 +902,8 @@ module SecureBiddingApp
 
       result = CreateProject.new(App.config).call(
         title: validated[:title],
+        description: validated[:description],
+        required_documents: validated[:required_documents],
         budget_cents: validated[:budget_cents].to_s,
         state: validated[:state],
         bidding_deadline: validated[:bidding_deadline],
@@ -1129,10 +1134,13 @@ module SecureBiddingApp
       end
 
       # Validate
-      validation = Forms::ProjectNew.new.call(
+      validation = Forms::ProjectEdit.new.call(
         title: routing.params['title'].to_s.strip,
+        description: routing.params['description'].to_s.strip,
+        required_documents: project_required_documents_from_params(routing.params),
         budget_cents: routing.params['budget_cents'].to_s.strip.empty? ? nil : routing.params['budget_cents'].to_s.strip.to_i,
-        state: routing.params['state'].to_s.strip
+        state: routing.params['state'].to_s.strip,
+        bidding_deadline: routing.params['bidding_deadline'].to_s.strip
       )
 
       if validation.failure?
@@ -1147,8 +1155,11 @@ module SecureBiddingApp
       UpdateProject.new(App.config).call(
         project_id: project_id,
         title: validated[:title],
+        description: validated[:description],
+        required_documents: validated[:required_documents],
         budget_cents: validated[:budget_cents].to_s,
         state: validated[:state],
+        bidding_deadline: validated[:bidding_deadline],
         auth_token: get_auth_token
       )
 
@@ -1184,6 +1195,13 @@ module SecureBiddingApp
     rescue ApiClient::ApiError => e
       flash[:error] = api_error_message(e, 'Failed to delete project')
       routing.redirect "/projects/#{project_id}"
+    end
+
+    def project_required_documents_from_params(params)
+      params['required_documents'].to_s
+                                   .lines
+                                   .map(&:strip)
+                                   .reject(&:empty?)
     end
 
     def admin_user_route_not_found!(routing)
