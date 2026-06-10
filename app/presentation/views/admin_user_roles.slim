@@ -6,7 +6,7 @@ div class="row justify-content-center mt-4"
       div class="card"
         div class="card-body"
           h2 class="card-title mb-4"
-            = "Promote #{user['username']}"
+            = "Manage role for #{user['username']}"
 
           form method="post" action="/admin/users/#{user['id']}/roles"
             div class="mb-3"
@@ -14,8 +14,7 @@ div class="row justify-content-center mt-4"
               select class="form-select" id="system_role" name="system_role" required="true"
                 option value="" disabled="true" selected="true" -- Select a role --
                 - roles.each do |role|
-                  - selected = user['system_role'] == role ? 'selected="true"' : ''
-                  option value="#{role}" selected="#{selected}"
+                  option value=role selected=(current_role == role)
                     = role == 'admin' ? 'Admin' : 'Member'
 
             button type="submit" class="btn btn-primary w-100" Update Role

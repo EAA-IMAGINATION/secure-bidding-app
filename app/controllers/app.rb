@@ -586,6 +586,35 @@ module SecureBiddingApp
       end
     end
 
+    def user_role_names(user)
+      return [] unless user
+
+      candidates = [
+        user['profile_roles'],
+        user['system_roles'],
+        user['system_role']
+      ]
+      candidates.flatten.compact.map(&:to_s).map(&:strip).reject(&:empty?).uniq
+    end
+
+    def admin_role_user?(user)
+      roles = user_role_names(user)
+      capabilities = user['capabilities'] || {}
+      roles.include?('admin') ||
+        roles.include?('system_admin') ||
+        capabilities['admin'] == true ||
+        capabilities['system_admin'] == true ||
+        capabilities['can_manage_accounts'] == true
+    end
+
+    def primary_account_role(user)
+      roles = user_role_names(user)
+      return 'admin' if admin_role_user?(user)
+      return 'member' if roles.include?('member')
+
+      roles.first.to_s
+    end
+
     def admin?(current_account)
       return false unless current_account
 
@@ -1270,9 +1299,9 @@ module SecureBiddingApp
 
       user = FetchUserDetail.new(App.config).call(user_id)
       roles = AssignSystemRole::VALID_ROLES
-      current_roles = system_roles_of(user)
+      current_role = primary_account_role(user)
       view :admin_user_roles,
-           locals: { user: user, roles: roles, current_roles: current_roles,
+           locals: { user: user, roles: roles, current_role: current_role,
                      current_account: @current_account }
     rescue FetchUserDetail::NotFoundError
       response.status = 404
