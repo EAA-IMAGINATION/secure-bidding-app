@@ -336,7 +336,9 @@ module SecureBiddingApp
       return account if token.to_s.strip.empty?
 
       apply_account_to_session!(merge_profile_account(account, token))
-    rescue ApiClient::ApiError
+    rescue ApiClient::ApiError => e
+      return clear_current_session! if e.status == 401
+
       account
     end
 
@@ -361,6 +363,11 @@ module SecureBiddingApp
       @current_session.store_current_account(account)
       @current_account = account
       account
+    end
+
+    def clear_current_session!
+      @current_session.delete_current_account
+      @current_account = nil
     end
 
     def apply_verification_to_session!(verification_result)
@@ -828,6 +835,15 @@ module SecureBiddingApp
         current_account: @current_account,
         is_owner: project.allowed?('manage_memberships')
       }
+    rescue FetchProjectDetail::UnauthorizedError
+      clear_current_session!
+      project = enrich_project_workspace(FetchProjectDetail.new(App.config).call(project_id))
+      {
+        project: project,
+        current_account: @current_account,
+        is_owner: false,
+        session_expired: true
+      }
     rescue FetchProjectDetail::NotFoundError
       { project: nil, current_account: @current_account, is_owner: false, project_unavailable: :not_found }
     rescue FetchProjectDetail::ForbiddenError
@@ -836,6 +852,7 @@ module SecureBiddingApp
 
     def handle_project_detail(_routing, project_id)
       locals = project_detail_locals(project_id)
+      flash.now[:error] = 'Your session expired. Please log in again to manage this project.' if locals[:session_expired]
       if locals[:project].nil?
         case locals[:project_unavailable]
         when :forbidden

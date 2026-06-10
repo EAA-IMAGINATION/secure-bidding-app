@@ -6,6 +6,7 @@ module SecureBiddingApp
     class ServiceError < StandardError; end
     class NotFoundError < StandardError; end
     class ForbiddenError < StandardError; end
+    class UnauthorizedError < StandardError; end
 
     def initialize(config)
       @config = config
@@ -19,6 +20,7 @@ module SecureBiddingApp
       res = client.get("/projects/#{project_id}")
       Project.from_hash(res)
     rescue ApiClient::ApiError => e
+      raise UnauthorizedError, 'Your session has expired' if e.status == 401
       raise NotFoundError, 'Project not found' if e.status == 404
       raise ForbiddenError, 'You do not have access to this project' if e.status == 403
 
