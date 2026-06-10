@@ -96,7 +96,7 @@ describe 'Account profile flow' do
     _(last_response.status).must_equal 200
     _(last_response.body).must_include 'Roles'
     _(last_response.body).must_include 'member'
-    _(last_response.body).must_include 'project_owner'
+    _(last_response.body).must_include 'project owner'
     _(last_response.body).must_include 'bidder'
     _(last_response.body).must_include 'freelancer'
     _(last_response.body).wont_include 'System roles'

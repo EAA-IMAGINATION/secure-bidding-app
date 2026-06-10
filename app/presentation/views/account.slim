@@ -1,10 +1,10 @@
 - account ||= @current_account
-- profile_roles = account&.dig('profile_roles')
-- if profile_roles.nil? || profile_roles.empty?
+- profile_roles = Array(account&.dig('profile_roles')).map(&:to_s).reject(&:empty?).uniq
+- if profile_roles.empty?
   - assigned_roles = (account&.dig('include', 'system_roles') || account&.dig('system_roles') || []).dup
   - column_role = account&.dig('system_role')
   - assigned_roles << column_role if column_role && !assigned_roles.include?(column_role)
-  - profile_roles = assigned_roles.sort.uniq
+  - profile_roles = assigned_roles.map(&:to_s).reject(&:empty?).uniq.sort
 - verified = account_email_verified?(account)
 
 div class="row justify-content-center mt-4"
@@ -40,8 +40,8 @@ div class="row justify-content-center mt-4"
               span class="text-muted" No roles assigned
             - else
               - profile_roles.each do |role|
-                span class="badge bg-secondary me-1"
-                  = role
+                span class="badge bg-info text-dark me-1 mb-1"
+                  = role.tr('_', ' ')
 
         div class="d-flex flex-wrap gap-2 mt-4"
           a href="/" class="btn btn-outline-secondary" Back to home
