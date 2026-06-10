@@ -947,7 +947,7 @@ module SecureBiddingApp
 
       validated = validation.to_h
 
-      result = CreateProject.new(App.config).call(
+      CreateProject.new(App.config).call(
         title: validated[:title],
         description: validated[:description],
         required_documents: validated[:required_documents],
@@ -959,7 +959,7 @@ module SecureBiddingApp
         auth_token: get_auth_token
       )
 
-      flash[:notice] = "Project created successfully (ID: #{result['id']})"
+      flash[:notice] = 'Project created successfully'
       routing.redirect '/'
     rescue CreateProject::ValidationError => e
       flash.now[:error] = e.message
@@ -1041,7 +1041,7 @@ module SecureBiddingApp
 
       validated = validation.to_h
 
-      result = SubmitBid.new(App.config).call(
+      SubmitBid.new(App.config).call(
         project_id: project_id,
         bidder_account_id: @current_account['id'],
         contractor_alias: validated[:contractor_alias],
@@ -1053,7 +1053,7 @@ module SecureBiddingApp
         auth_token: @current_account['token']
       )
 
-      flash[:notice] = "Bid submitted successfully (ID: #{result['id']})"
+      flash[:notice] = 'Bid submitted successfully'
       routing.redirect "/projects/#{project_id}"
     rescue SubmitBid::ValidationError => e
       flash.now[:error] = e.message
@@ -1210,7 +1210,7 @@ module SecureBiddingApp
         auth_token: get_auth_token
       )
 
-      flash[:notice] = "Project #{project_id} updated successfully"
+      flash[:notice] = 'Project updated successfully'
       routing.redirect "/projects/#{project_id}"
     rescue UpdateProject::ValidationError => e
       flash.now[:error] = e.message
@@ -1233,7 +1233,7 @@ module SecureBiddingApp
 
       DeleteProject.new(App.config).call(project_id: project_id, auth_token: get_auth_token)
 
-      flash[:notice] = "Project #{project_id} deleted successfully"
+      flash[:notice] = 'Project deleted successfully'
       routing.redirect '/'
     rescue DeleteProject::NotFoundError
       response.status = 404
@@ -1307,12 +1307,12 @@ module SecureBiddingApp
       response.status = 404
       flash.now[:error] = 'User not found'
       view :admin_user_roles,
-           locals: { user: nil, roles: [], current_roles: [], current_account: @current_account }
+           locals: { user: nil, roles: [], current_role: nil, current_account: @current_account }
     rescue FetchUserDetail::ServiceError => e
       response.status = 500
       flash.now[:error] = e.message
       view :admin_user_roles,
-           locals: { user: nil, roles: [], current_roles: [], current_account: @current_account }
+           locals: { user: nil, roles: [], current_role: nil, current_account: @current_account }
     end
 
     def handle_admin_user_roles_post(routing, user_id)
@@ -1330,16 +1330,16 @@ module SecureBiddingApp
         auth_token: get_auth_token
       )
 
-      flash[:notice] = "User #{user_id} role updated to #{system_role}"
+      flash[:notice] = 'User role updated successfully'
       routing.redirect "/admin/users/#{user_id}/roles"
     rescue AssignSystemRole::ValidationError => e
       flash.now[:error] = e.message
       response.status = 400
       user = FetchUserDetail.new(App.config).call(user_id)
       roles = AssignSystemRole::VALID_ROLES
-      current_roles = system_roles_of(user)
+      current_role = primary_account_role(user)
       view :admin_user_roles,
-           locals: { user: user, roles: roles, current_roles: current_roles,
+           locals: { user: user, roles: roles, current_role: current_role,
                      current_account: @current_account }
     rescue ApiClient::ApiError => e
       flash.now[:error] = api_error_message(e, 'Failed to assign role')

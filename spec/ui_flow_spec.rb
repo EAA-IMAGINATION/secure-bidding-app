@@ -116,5 +116,7 @@ describe 'Frontend UI flows' do
 
     _(last_response.status).must_equal 200
     _(last_response.body).must_include 'Website Redesign'
+    _(last_response.body).must_include 'Bid submitted successfully'
+    _(last_response.body).wont_include 'bid-1'
   end
 end

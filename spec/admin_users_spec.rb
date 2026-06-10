@@ -209,5 +209,11 @@ describe 'Admin users management' do
 
     _(last_response.status).must_equal 302
     _(last_response.location).must_equal "/admin/users/#{target_id}/roles"
+
+    follow_redirect!
+
+    _(last_response.status).must_equal 200
+    _(last_response.body).must_include 'User role updated successfully'
+    _(last_response.body).wont_include 'role updated to admin'
   end
 end
