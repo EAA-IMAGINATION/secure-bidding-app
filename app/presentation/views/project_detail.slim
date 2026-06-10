@@ -26,6 +26,18 @@ div class="row justify-content-center mt-4"
             strong Budget:
             = number_to_currency(project['budget_cents'] / 100.0)
 
+          - if project['description'].to_s.strip != ''
+            p class="mb-2"
+              strong Description:
+              span.ms-1 = project['description']
+
+          - if Array(project['required_documents']).any?
+            div class="mb-2"
+              strong Required Bid Documents:
+              ul class="mb-0 mt-1"
+                - Array(project['required_documents']).each do |document_name|
+                  li = document_name
+
           - if project['bidding_deadline']
             p class="mb-2"
               strong Bidding Deadline:
@@ -102,7 +114,7 @@ div class="row justify-content-center mt-4"
           div class="card-body"
             h5 class="card-title" Submit a Bid
             - if project['nacl_public_key']
-              form method="post" action="/projects/#{project['id']}/bids" id="bid-form" data-project-public-key=project['nacl_public_key'] data-project-id=project['id']
+              form method="post" action="/projects/#{project['id']}/bids" id="bid-form" data-project-public-key=project['nacl_public_key'] data-project-id=project['id'] data-deadline=project['bidding_deadline']
                 div class="mb-3"
                   label for="contractor_alias" class="form-label" Contractor Alias
                   input type="text" class="form-control" id="contractor_alias" name="contractor_alias" required=true
@@ -112,9 +124,17 @@ div class="row justify-content-center mt-4"
                 div class="mb-3"
                   label for="proposal_text" class="form-label" Proposal
                   textarea class="form-control" id="proposal_text" name="proposal_text" rows="4"
-                div class="mb-3"
-                  label for="bid_document" class="form-label" Supporting Document (optional)
-                  input type="file" class="form-control" id="bid_document" name="bid_document"
+                - if Array(project['required_documents']).any?
+                  div class="mb-3" data-required-documents=Array(project['required_documents']).to_json
+                    label class="form-label" Required Documents
+                    - Array(project['required_documents']).each_with_index do |document_name, index|
+                      div class="mb-2"
+                        label for="bid_document_#{index}" class="form-label small" = document_name
+                        input type="file" class="form-control bid-required-document" id="bid_document_#{index}" data-document-name=document_name required=true
+                - else
+                  div class="mb-3"
+                    label for="bid_document" class="form-label" Supporting Document (optional)
+                    input type="file" class="form-control" id="bid_document" name="bid_document"
                 input type="hidden" id="encrypted_bid_amount" name="encrypted_bid_amount" value=""
                 input type="hidden" id="encrypted_proposal_text" name="encrypted_proposal_text" value=""
                 input type="hidden" id="encrypted_document" name="encrypted_document" value=""

@@ -108,6 +108,41 @@ describe 'App Controller' do
       _(last_response.location).must_include '/auth/login'
     end
 
+    it 'GET /projects/new uses structured required document controls without crypto implementation banners' do
+      account_id = '550e8400-e29b-41d4-a716-446655440001'
+      token = 'member-token'
+      session = {}
+      CurrentSession.new(session).store_current_account(
+        'id' => account_id,
+        'username' => 'verified-member',
+        'token' => token,
+        'email_verified' => true,
+        'system_role' => 'member'
+      )
+      stub_request(:get, "#{SecureBiddingApp::App.config.API_URL}/accounts/#{account_id}")
+        .with(headers: { 'Authorization' => "Bearer #{token}" })
+        .to_return(
+          status: 200,
+          body: {
+            id: account_id,
+            username: 'verified-member',
+            token: token,
+            email_verified: true,
+            system_role: 'member'
+          }.to_json,
+          headers: { 'Content-Type' => 'application/json' }
+        )
+
+      get '/projects/new', {}, 'rack.session' => session
+
+      _(last_response.status).must_equal 200
+      _(last_response.body).must_include 'data-required-documents-builder'
+      _(last_response.body).must_include 'data-add-required-document'
+      _(last_response.body).wont_include 'NaCl'
+      _(last_response.body).wont_include 'keypair generated'
+      _(last_response.body).wont_include 'crypto-status'
+    end
+
     it 'GET /auth/login is accessible' do
       get '/auth/login'
       _(last_response.status).must_equal 200

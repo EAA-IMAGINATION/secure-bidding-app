@@ -12,6 +12,20 @@ div class="row justify-content-center mt-4"
             input type="text" class="form-control" id="title" name="title" required=true placeholder="Enter project title"
 
           div class="mb-3"
+            label for="description" class="form-label" Project Description
+            textarea class="form-control" id="description" name="description" rows="4" placeholder="Describe the work, goals, and acceptance criteria"
+
+          div class="mb-3"
+            label for="required_document_entry" class="form-label" Required Bid Documents
+            div data-required-documents-builder=""
+              div class="input-group"
+                input type="text" class="form-control" id="required_document_entry" data-required-document-entry="" placeholder="Technical proposal"
+                button type="button" class="btn btn-outline-primary" data-add-required-document="" Add
+              ul class="list-group mt-2" data-required-documents-list=""
+              textarea id="required_documents" name="required_documents" data-required-documents-value="" hidden=true
+            small class="form-text text-muted" Add each required upload separately. Bidders must upload every listed document before submitting.
+
+          div class="mb-3"
             label for="budget_cents" class="form-label" Budget (in cents)
             input type="number" class="form-control" id="budget_cents" name="budget_cents" required=true min="0" placeholder="e.g., 120000 for $1200.00"
             small class="form-text text-muted" Enter amount in cents (1 dollar = 100 cents)
@@ -29,9 +43,5 @@ div class="row justify-content-center mt-4"
 
           input type="hidden" id="nacl_public_key" name="nacl_public_key" value=""
           input type="hidden" id="nacl_encrypted_private_key" name="nacl_encrypted_private_key" value=""
-
-          div class="mb-3" id="crypto-status" style="display: none;"
-            div class="alert alert-info" role="alert"
-              span id="crypto-message" Generating NaCl keypair...
 
           button type="submit" class="btn btn-primary w-100" id="submit-btn" disabled=true Create Project

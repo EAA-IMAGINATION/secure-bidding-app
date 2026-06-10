@@ -23,17 +23,19 @@ div class="row justify-content-center mt-4"
           
           p class="mb-4"
             strong Roles:
-            - if user['system_roles'] && user['system_roles'].size > 0
-              - user['system_roles'].each do |role|
+            - roles = user_role_names(user)
+            - if roles.any?
+              - roles.each do |role|
                 span class="badge bg-info me-1"
                   = role
-            - elsif user['system_role'] && !user['system_role'].to_s.strip.empty?
-              span class="badge bg-info me-1"
-                = user['system_role']
             - else
               span class="text-muted" No roles assigned
 
         div class="d-flex gap-2 mb-4"
-          a href="/admin/users/#{user['id']}/roles" class="btn btn-primary" Promote
+          - if can_manage_user_role?(user, current_account)
+            a href="/admin/users/#{user['id']}/roles" class="btn btn-primary"
+              = admin_role_user?(user) ? 'Manage Role' : 'Promote'
+          - else
+            span class="badge bg-secondary align-self-center" Current admin
     - else
       div class="alert alert-danger" User not found

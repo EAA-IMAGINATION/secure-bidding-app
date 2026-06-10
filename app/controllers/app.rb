@@ -4,6 +4,8 @@ require 'rack/method_override'
 require 'roda'
 require 'slim'
 require 'slim/include'
+require 'time'
+require 'uri'
 
 module SecureBiddingApp
   module RoutingHelpers
@@ -56,7 +58,7 @@ module SecureBiddingApp
     route('register') do |routing|
       routing.on 'verify' do
         routing.on String do |token|
-          routing.get { routing.redirect "/verify-email?token=#{Rack::Utils.escape_path(token)}" }
+          routing.get { routing.redirect "/verify-email?token=#{URI.encode_www_form_component(token)}" }
         end
       end
 
@@ -69,22 +71,6 @@ module SecureBiddingApp
     # Routes for account management
     route('account') do |routing|
       routing.on String do |username|
-        routing.get do
-          require_login!(routing)
-          return routing.redirect("/account/#{@current_account['username']}") if @current_account['username'] != username
-
-          profile = FetchAccountByUsername.new(App.config).call(
-            username: username,
-            auth_token: get_auth_token
-          )
-          api_key = profile['api_key']
-          view :account, locals: { account: profile, current_account: @current_account, api_key: api_key }
-        rescue ApiClient::ApiError => e
-          response.status = e.status.to_i
-          flash.now[:error] = api_error_message(e, 'Unable to load your account')
-          view :account, locals: { account: @current_account, current_account: @current_account }
-        end
-
         routing.on 'edit' do
           routing.get do
             require_login!(routing)
@@ -114,6 +100,22 @@ module SecureBiddingApp
             require_login!(routing)
             handle_resend_account_verification(routing, username)
           end
+        end
+
+        routing.get do
+          require_login!(routing)
+          return routing.redirect("/account/#{@current_account['username']}") if @current_account['username'] != username
+
+          profile = FetchAccountByUsername.new(App.config).call(
+            username: username,
+            auth_token: get_auth_token
+          )
+          api_key = profile['api_key']
+          view :account, locals: { account: profile, current_account: @current_account, api_key: api_key }
+        rescue ApiClient::ApiError => e
+          response.status = e.status.to_i
+          flash.now[:error] = api_error_message(e, 'Unable to load your account')
+          view :account, locals: { account: @current_account, current_account: @current_account }
         end
       end
     end
@@ -334,7 +336,9 @@ module SecureBiddingApp
       return account if token.to_s.strip.empty?
 
       apply_account_to_session!(merge_profile_account(account, token))
-    rescue ApiClient::ApiError
+    rescue ApiClient::ApiError => e
+      return clear_current_session! if e.status == 401
+
       account
     end
 
@@ -359,6 +363,11 @@ module SecureBiddingApp
       @current_session.store_current_account(account)
       @current_account = account
       account
+    end
+
+    def clear_current_session!
+      @current_session.delete_current_account
+      @current_account = nil
     end
 
     def apply_verification_to_session!(verification_result)
@@ -577,6 +586,45 @@ module SecureBiddingApp
       end
     end
 
+    def user_role_names(user)
+      return [] unless user
+
+      candidates = [
+        user['profile_roles'],
+        user['system_roles'],
+        user['system_role']
+      ]
+      candidates.flatten.compact.map(&:to_s).map(&:strip).reject(&:empty?).uniq
+    end
+
+    def admin_role_user?(user)
+      roles = user_role_names(user)
+      capabilities = user['capabilities'] || {}
+      roles.include?('admin') ||
+        roles.include?('system_admin') ||
+        capabilities['admin'] == true ||
+        capabilities['system_admin'] == true ||
+        capabilities['can_manage_accounts'] == true
+    end
+
+    def primary_account_role(user)
+      roles = user_role_names(user)
+      return 'admin' if admin_role_user?(user)
+      return 'member' if roles.include?('member')
+
+      roles.first.to_s
+    end
+
+    def same_account?(user, current_account)
+      return false unless user && current_account
+
+      user['id'].to_s == current_account['id'].to_s
+    end
+
+    def can_manage_user_role?(user, current_account)
+      can_manage_accounts?(current_account) && !same_account?(user, current_account)
+    end
+
     def admin?(current_account)
       return false unless current_account
 
@@ -687,11 +735,105 @@ module SecureBiddingApp
       end
 
       projects = FetchProjects.new(App.config).call(auth_token: get_auth_token)
-      view :my_projects, locals: { current_account: @current_account, projects: projects }
+      buckets = partition_my_projects(projects)
+      filter = routing.params['filter'].to_s.strip
+      filter = 'all' unless %w[all owned freelancer active closed].include?(filter)
+
+      view :my_projects,
+           locals: {
+             current_account: @current_account,
+             projects: projects,
+             owned_projects: buckets[:owned],
+             freelancer_projects: buckets[:freelancer],
+             active_owned_projects: buckets[:active_owned],
+             active_freelancer_projects: buckets[:active_freelancer],
+             closed_owned_projects: buckets[:closed_owned],
+             closed_freelancer_projects: buckets[:closed_freelancer],
+             filter: filter
+           }
     rescue FetchProjects::ServiceError => e
       flash.now[:error] = "Failed to fetch your projects: #{e.message}"
       response.status = 500
-      view :my_projects, locals: { current_account: @current_account, projects: [] }
+      view :my_projects,
+           locals: {
+             current_account: @current_account,
+             projects: [],
+             owned_projects: [],
+             freelancer_projects: [],
+             active_owned_projects: [],
+             active_freelancer_projects: [],
+             closed_owned_projects: [],
+             closed_freelancer_projects: [],
+             filter: 'all'
+           }
+    end
+
+    ACTIVE_PROJECT_STATES = %w[published in_progress payment_pending].freeze
+
+    def partition_my_projects(projects)
+      owned = []
+      freelancer = []
+
+      (projects || []).each do |project|
+        owned << project if project_owned?(project)
+        freelancer << project if project_freelancer?(project)
+      end
+
+      {
+        owned: owned,
+        freelancer: freelancer,
+        active_owned: owned.select { |project| project_active?(project) },
+        active_freelancer: freelancer.select { |project| project_active?(project) },
+        closed_owned: owned.select { |project| project_closed?(project) },
+        closed_freelancer: freelancer.select { |project| project_closed?(project) }
+      }
+    end
+
+    def project_active?(project)
+      ACTIVE_PROJECT_STATES.include?(project_state(project))
+    end
+
+    def project_owned?(project)
+      allowed?(project, 'manage_memberships') || allowed?(project, 'manage_owners')
+    end
+
+    def project_freelancer?(project)
+      allowed?(project, 'view_as_awarded_bidder')
+    end
+
+    def project_closed?(project)
+      project_state(project) == 'closed'
+    end
+
+    def project_state(project)
+      if project.respond_to?(:[])
+        project['state'].to_s
+      else
+        project.to_s
+      end
+    end
+
+    def project_state_badge_class(state)
+      case state.to_s
+      when 'saved' then 'bg-primary'
+      when 'published' then 'bg-success'
+      when 'in_progress' then 'bg-info text-dark'
+      when 'payment_pending' then 'bg-warning text-dark'
+      when 'closed' then 'bg-secondary'
+      else 'bg-light text-dark'
+      end
+    end
+
+    def project_relationship_label(project, fallback = 'Owner')
+      if project_owned?(project) && project_freelancer?(project)
+        'Owner, Freelancer'
+      elsif project_freelancer?(project)
+        'Freelancer'
+      elsif project_owned?(project)
+        'Owner'
+      else
+        fallback
+      end
     end
 
     def fetch_project_detail(project_id)
@@ -704,18 +846,19 @@ module SecureBiddingApp
       token = get_auth_token
       return Project.from_hash(data) unless token
 
+      project_id = project['id']
       if project.allowed?('view_bid_count')
-        count_payload = FetchProjectBidCount.new(App.config).call(project.id, auth_token: token)
+        count_payload = FetchProjectBidCount.new(App.config).call(project_id, auth_token: token)
         data['bid_count'] = count_payload['bid_count']
       end
 
       if project.allowed?('manage_milestones')
-        milestone_payload = FetchProjectMilestones.new(App.config).call(project.id, auth_token: token)
+        milestone_payload = FetchProjectMilestones.new(App.config).call(project_id, auth_token: token)
         data['milestones'] = milestone_payload['milestones'] || []
       end
 
       if project.allowed?('view_bids')
-        bid_payload = FetchProjectBidSubmissions.new(App.config).call(project.id, auth_token: token)
+        bid_payload = FetchProjectBidSubmissions.new(App.config).call(project_id, auth_token: token)
         data['bids'] = bid_payload['bid_submissions'] || []
       end
 
@@ -732,6 +875,15 @@ module SecureBiddingApp
         current_account: @current_account,
         is_owner: project.allowed?('manage_memberships')
       }
+    rescue FetchProjectDetail::UnauthorizedError
+      clear_current_session!
+      project = enrich_project_workspace(FetchProjectDetail.new(App.config).call(project_id))
+      {
+        project: project,
+        current_account: @current_account,
+        is_owner: false,
+        session_expired: true
+      }
     rescue FetchProjectDetail::NotFoundError
       { project: nil, current_account: @current_account, is_owner: false, project_unavailable: :not_found }
     rescue FetchProjectDetail::ForbiddenError
@@ -740,6 +892,7 @@ module SecureBiddingApp
 
     def handle_project_detail(_routing, project_id)
       locals = project_detail_locals(project_id)
+      flash.now[:error] = 'Your session expired. Please log in again to manage this project.' if locals[:session_expired]
       if locals[:project].nil?
         case locals[:project_unavailable]
         when :forbidden
@@ -787,6 +940,8 @@ module SecureBiddingApp
       # Validate
       validation = Forms::ProjectNew.new.call(
         title: routing.params['title'].to_s.strip,
+        description: routing.params['description'].to_s.strip,
+        required_documents: project_required_documents_from_params(routing.params),
         budget_cents: routing.params['budget_cents'].to_s.strip.empty? ? nil : routing.params['budget_cents'].to_s.strip.to_i,
         state: routing.params['state'].to_s.strip,
         bidding_deadline: routing.params['bidding_deadline'].to_s.strip,
@@ -802,8 +957,10 @@ module SecureBiddingApp
 
       validated = validation.to_h
 
-      result = CreateProject.new(App.config).call(
+      CreateProject.new(App.config).call(
         title: validated[:title],
+        description: validated[:description],
+        required_documents: validated[:required_documents],
         budget_cents: validated[:budget_cents].to_s,
         state: validated[:state],
         bidding_deadline: validated[:bidding_deadline],
@@ -812,7 +969,7 @@ module SecureBiddingApp
         auth_token: get_auth_token
       )
 
-      flash[:notice] = "Project created successfully (ID: #{result['id']})"
+      flash[:notice] = 'Project created successfully'
       routing.redirect '/'
     rescue CreateProject::ValidationError => e
       flash.now[:error] = e.message
@@ -880,6 +1037,7 @@ module SecureBiddingApp
 
       # Validate
       validation = Forms::BidSubmission.new.call(
+        project_id: project_id,
         contractor_alias: routing.params['contractor_alias'].to_s.strip,
         encrypted_bid_amount: routing.params['encrypted_bid_amount'].to_s.strip,
         encrypted_proposal_text: routing.params['encrypted_proposal_text'].to_s.strip
@@ -893,7 +1051,7 @@ module SecureBiddingApp
 
       validated = validation.to_h
 
-      result = SubmitBid.new(App.config).call(
+      SubmitBid.new(App.config).call(
         project_id: project_id,
         bidder_account_id: @current_account['id'],
         contractor_alias: validated[:contractor_alias],
@@ -905,7 +1063,7 @@ module SecureBiddingApp
         auth_token: @current_account['token']
       )
 
-      flash[:notice] = "Bid submitted successfully (ID: #{result['id']})"
+      flash[:notice] = 'Bid submitted successfully'
       routing.redirect "/projects/#{project_id}"
     rescue SubmitBid::ValidationError => e
       flash.now[:error] = e.message
@@ -1033,10 +1191,13 @@ module SecureBiddingApp
       end
 
       # Validate
-      validation = Forms::ProjectNew.new.call(
+      validation = Forms::ProjectEdit.new.call(
         title: routing.params['title'].to_s.strip,
+        description: routing.params['description'].to_s.strip,
+        required_documents: project_required_documents_from_params(routing.params),
         budget_cents: routing.params['budget_cents'].to_s.strip.empty? ? nil : routing.params['budget_cents'].to_s.strip.to_i,
-        state: routing.params['state'].to_s.strip
+        state: routing.params['state'].to_s.strip,
+        bidding_deadline: routing.params['bidding_deadline'].to_s.strip
       )
 
       if validation.failure?
@@ -1051,12 +1212,15 @@ module SecureBiddingApp
       UpdateProject.new(App.config).call(
         project_id: project_id,
         title: validated[:title],
+        description: validated[:description],
+        required_documents: validated[:required_documents],
         budget_cents: validated[:budget_cents].to_s,
         state: validated[:state],
+        bidding_deadline: validated[:bidding_deadline],
         auth_token: get_auth_token
       )
 
-      flash[:notice] = "Project #{project_id} updated successfully"
+      flash[:notice] = 'Project updated successfully'
       routing.redirect "/projects/#{project_id}"
     rescue UpdateProject::ValidationError => e
       flash.now[:error] = e.message
@@ -1079,7 +1243,7 @@ module SecureBiddingApp
 
       DeleteProject.new(App.config).call(project_id: project_id, auth_token: get_auth_token)
 
-      flash[:notice] = "Project #{project_id} deleted successfully"
+      flash[:notice] = 'Project deleted successfully'
       routing.redirect '/'
     rescue DeleteProject::NotFoundError
       response.status = 404
@@ -1088,6 +1252,13 @@ module SecureBiddingApp
     rescue ApiClient::ApiError => e
       flash[:error] = api_error_message(e, 'Failed to delete project')
       routing.redirect "/projects/#{project_id}"
+    end
+
+    def project_required_documents_from_params(params)
+      params['required_documents'].to_s
+                                   .lines
+                                   .map(&:strip)
+                                   .reject(&:empty?)
     end
 
     def admin_user_route_not_found!(routing)
@@ -1137,21 +1308,26 @@ module SecureBiddingApp
       end
 
       user = FetchUserDetail.new(App.config).call(user_id)
+      if same_account?(user, @current_account)
+        flash[:error] = 'Admins cannot change their own account role'
+        return routing.redirect "/admin/users/#{user_id}"
+      end
+
       roles = AssignSystemRole::VALID_ROLES
-      current_roles = system_roles_of(user)
+      current_role = primary_account_role(user)
       view :admin_user_roles,
-           locals: { user: user, roles: roles, current_roles: current_roles,
+           locals: { user: user, roles: roles, current_role: current_role,
                      current_account: @current_account }
     rescue FetchUserDetail::NotFoundError
       response.status = 404
       flash.now[:error] = 'User not found'
       view :admin_user_roles,
-           locals: { user: nil, roles: [], current_roles: [], current_account: @current_account }
+           locals: { user: nil, roles: [], current_role: nil, current_account: @current_account }
     rescue FetchUserDetail::ServiceError => e
       response.status = 500
       flash.now[:error] = e.message
       view :admin_user_roles,
-           locals: { user: nil, roles: [], current_roles: [], current_account: @current_account }
+           locals: { user: nil, roles: [], current_role: nil, current_account: @current_account }
     end
 
     def handle_admin_user_roles_post(routing, user_id)
@@ -1162,6 +1338,10 @@ module SecureBiddingApp
       end
 
       system_role = routing.params['system_role'].to_s.strip
+      if user_id.to_s == @current_account['id'].to_s
+        flash[:error] = 'Admins cannot change their own account role'
+        return routing.redirect "/admin/users/#{user_id}"
+      end
 
       AssignSystemRole.new(App.config).call(
         account_id: user_id,
@@ -1169,25 +1349,25 @@ module SecureBiddingApp
         auth_token: get_auth_token
       )
 
-      flash[:notice] = "User #{user_id} role updated to #{system_role}"
+      flash[:notice] = 'User role updated successfully'
       routing.redirect "/admin/users/#{user_id}/roles"
     rescue AssignSystemRole::ValidationError => e
       flash.now[:error] = e.message
       response.status = 400
       user = FetchUserDetail.new(App.config).call(user_id)
       roles = AssignSystemRole::VALID_ROLES
-      current_roles = system_roles_of(user)
+      current_role = primary_account_role(user)
       view :admin_user_roles,
-           locals: { user: user, roles: roles, current_roles: current_roles,
+           locals: { user: user, roles: roles, current_role: current_role,
                      current_account: @current_account }
     rescue ApiClient::ApiError => e
       flash.now[:error] = api_error_message(e, 'Failed to assign role')
       response.status = e.status.to_i
       user = FetchUserDetail.new(App.config).call(user_id)
       roles = AssignSystemRole::VALID_ROLES
-      current_roles = system_roles_of(user)
+      current_role = primary_account_role(user)
       view :admin_user_roles,
-           locals: { user: user, roles: roles, current_roles: current_roles,
+           locals: { user: user, roles: roles, current_role: current_role,
                      current_account: @current_account }
     end
   end

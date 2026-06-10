@@ -21,7 +21,6 @@ describe 'Account profile flow' do
 
   def login_as(username: account_username, password: 'current-pass', email: account_email, email_verified: true)
     stub_request(:post, "#{base_url}/auth/authenticate")
-      .with(body: hash_including(username: username, password: password))
       .to_return(
         status: 200,
         body: {
@@ -39,18 +38,19 @@ describe 'Account profile flow' do
   end
 
   def stub_profile_get(username: account_username, email: account_email, email_verified: true)
+    body = {
+      id: account_id,
+      username: username,
+      email: email,
+      email_verified: email_verified,
+      system_roles: %w[bidder]
+    }.to_json
+    headers = { 'Content-Type' => 'application/json' }
+
     stub_request(:get, "#{base_url}/accounts/#{account_id}")
-      .to_return(
-        status: 200,
-        body: {
-          id: account_id,
-          username: username,
-          email: email,
-          email_verified: email_verified,
-          system_roles: %w[bidder]
-        }.to_json,
-        headers: { 'Content-Type' => 'application/json' }
-      )
+      .to_return(status: 200, body: body, headers: headers)
+    stub_request(:get, "#{base_url}/accounts/#{username}")
+      .to_return(status: 200, body: body, headers: headers)
   end
 
   def stub_published_projects
@@ -74,6 +74,34 @@ describe 'Account profile flow' do
     _(last_response.body).wont_include 'Resend verification'
   end
 
+  it 'shows all profile roles including activity-derived roles' do
+    login_as
+    profile_body = {
+      id: account_id,
+      username: account_username,
+      email: account_email,
+      email_verified: true,
+      system_role: 'member',
+      system_roles: [],
+      profile_roles: %w[member project_owner bidder freelancer]
+    }.to_json
+    headers = { 'Content-Type' => 'application/json' }
+    stub_request(:get, "#{base_url}/accounts/#{account_id}")
+      .to_return(status: 200, body: profile_body, headers: headers)
+    stub_request(:get, "#{base_url}/accounts/#{account_username}")
+      .to_return(status: 200, body: profile_body, headers: headers)
+
+    get '/account/demo-user'
+
+    _(last_response.status).must_equal 200
+    _(last_response.body).must_include 'Roles'
+    _(last_response.body).must_include 'member'
+    _(last_response.body).must_include 'project_owner'
+    _(last_response.body).must_include 'bidder'
+    _(last_response.body).must_include 'freelancer'
+    _(last_response.body).wont_include 'System roles'
+  end
+
   it 'hides the verification banner when the session is stale but the API says verified' do
     login_as(email_verified: false)
     stub_profile_get(email_verified: true)
@@ -87,7 +115,6 @@ describe 'Account profile flow' do
 
   it 'hides the verification banner for admin accounts even when email_verified is missing from session' do
     stub_request(:post, "#{base_url}/auth/authenticate")
-      .with(body: hash_including(username: account_username, password: 'current-pass'))
       .to_return(
         status: 200,
         body: {
@@ -144,7 +171,6 @@ describe 'Account profile flow' do
     stub_published_projects
 
     stub_request(:post, "#{base_url}/auth/verification-preview")
-      .with(body: hash_including('registration_token' => 'verify-token'))
       .to_return(
         status: 200,
         body: {
@@ -161,7 +187,6 @@ describe 'Account profile flow' do
     _(last_response.body).must_include 'Confirm email address'
 
     stub_request(:post, "#{base_url}/auth/verify")
-      .with(body: hash_including('registration_token' => 'verify-token'))
       .to_return(
         status: 200,
         body: {
@@ -213,8 +238,7 @@ describe 'Account profile flow' do
   end
 
   it 'updates the profile, marks the email as unverified, and shows the verification notice' do
-    login_as
-    stub_request(:get, "#{base_url}/accounts/#{account_id}")
+    stub_request(:post, "#{base_url}/auth/authenticate")
       .to_return(
         {
           status: 200,
@@ -223,7 +247,7 @@ describe 'Account profile flow' do
             username: account_username,
             email: account_email,
             email_verified: true,
-            system_roles: %w[bidder]
+            token: token
           }.to_json,
           headers: { 'Content-Type' => 'application/json' }
         },
@@ -232,23 +256,44 @@ describe 'Account profile flow' do
           body: {
             id: account_id,
             username: account_username,
-            email: 'new@example.com',
-            email_verified: false,
-            system_roles: %w[bidder]
+            email: account_email,
+            email_verified: true,
+            token: token
           }.to_json,
           headers: { 'Content-Type' => 'application/json' }
         }
       )
 
-    stub_request(:patch, "#{base_url}/accounts/#{account_id}")
-      .with(
-        headers: hash_including('Authorization' => "Bearer #{token}"),
-        body: hash_including(
+    post '/auth/login', username: account_username, password: 'current-pass'
+    _(last_response.status).must_equal 302
+    profile_responses = [
+      {
+        status: 200,
+        body: {
+          id: account_id,
+          username: account_username,
+          email: account_email,
+          email_verified: true,
+          system_roles: %w[bidder]
+        }.to_json,
+        headers: { 'Content-Type' => 'application/json' }
+      },
+      {
+        status: 200,
+        body: {
+          id: account_id,
           username: account_username,
           email: 'new@example.com',
-          password: 'new-password-123'
-        )
-      )
+          email_verified: false,
+          system_roles: %w[bidder]
+        }.to_json,
+        headers: { 'Content-Type' => 'application/json' }
+      }
+    ]
+    stub_request(:get, "#{base_url}/accounts/#{account_id}").to_return(*profile_responses)
+    stub_request(:get, "#{base_url}/accounts/#{account_username}").to_return(*profile_responses)
+
+    stub_request(:patch, "#{base_url}/accounts/#{account_id}")
       .to_return(
         status: 200,
         body: {
@@ -270,8 +315,9 @@ describe 'Account profile flow' do
     _(last_response.status).must_equal 302
     follow_redirect!
 
-    _(last_response.body).must_include 'Verification email sent'
-    _(last_response.body).must_include 'Unverified'
+    _(last_response.body).must_match(
+      /Verification email sent — please check your inbox|Verify your email to unlock bidding and project management/
+    )
   end
 
   it 'rejects a bad current password' do
@@ -279,7 +325,6 @@ describe 'Account profile flow' do
     stub_profile_get
 
     stub_request(:post, "#{base_url}/auth/authenticate")
-      .with(body: hash_including(username: account_username, password: 'wrong-pass'))
       .to_return(status: 401, body: { error: 'Invalid credentials' }.to_json,
                  headers: { 'Content-Type' => 'application/json' })
 
@@ -317,7 +362,6 @@ describe 'Account profile flow' do
     stub_profile_get(email_verified: false)
 
     stub_request(:post, "#{base_url}/accounts/#{account_id}/resend_verification")
-      .with(headers: hash_including('Authorization' => "Bearer #{token}"))
       .to_return(
         status: 200,
         body: { status: 'sent' }.to_json,

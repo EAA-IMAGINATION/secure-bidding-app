@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
+  initRequiredDocumentsBuilder();
   initProjectFormCrypto();
   initBidFormCrypto();
   initProjectRevealPanels();
@@ -26,7 +27,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // === Cryptography Helpers ===
 
-// Base64 encoding/decoding helpers for NaCl
+// Base64 encoding/decoding helpers
 const CryptoUtils = {
   // Convert bytes to base64 string
   toBase64(bytes) {
@@ -36,12 +37,22 @@ const CryptoUtils = {
     return btoa(String.fromCharCode(...new Uint8Array(bytes)));
   },
 
+  arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
+  },
+
   // Convert base64 string to bytes
   fromBase64(str) {
     return Uint8Array.from(atob(str), c => c.charCodeAt(0));
   },
 
-  // Generate NaCl keypair for project
+  // Generate a keypair for project bid encryption
   generateKeyPair() {
     if (typeof nacl === 'undefined') {
       throw new Error('NaCl library not loaded');
@@ -179,6 +190,10 @@ const CryptoUtils = {
     const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  },
+
+  async fileToBase64(file) {
+    return this.arrayBufferToBase64(await file.arrayBuffer());
   },
 
   // Encrypt file content
@@ -338,8 +353,6 @@ function initProjectFormCrypto() {
   const form = document.getElementById('project-form');
   if (!form) return;
 
-  const statusDiv = document.getElementById('crypto-status');
-  const statusMessage = document.getElementById('crypto-message');
   const submitBtn = document.getElementById('submit-btn');
 
   try {
@@ -349,17 +362,10 @@ function initProjectFormCrypto() {
       CryptoUtils.wrapPrivateKey(keyPair.secretKey)
     );
 
-    statusMessage.textContent = 'NaCl keypair generated automatically for this project.';
-    statusDiv.classList.remove('alert-info', 'alert-danger');
-    statusDiv.classList.add('alert-success');
-    statusDiv.style.display = 'block';
     submitBtn.disabled = false;
   } catch (err) {
     console.error('Crypto error:', err);
-    statusMessage.textContent = 'Error: ' + err.message;
-    statusDiv.classList.remove('alert-info', 'alert-success');
-    statusDiv.classList.add('alert-danger');
-    statusDiv.style.display = 'block';
+    alert('Secure bidding setup failed. Please reload the page and try again.');
     submitBtn.disabled = true;
   }
 
@@ -372,6 +378,67 @@ function initProjectFormCrypto() {
   });
 }
 
+function initRequiredDocumentsBuilder() {
+  document.querySelectorAll('[data-required-documents-builder]').forEach(function(builder) {
+    const entry = builder.querySelector('[data-required-document-entry]');
+    const addButton = builder.querySelector('[data-add-required-document]');
+    const list = builder.querySelector('[data-required-documents-list]');
+    const valueField = builder.querySelector('[data-required-documents-value]');
+    if (!entry || !addButton || !list || !valueField) return;
+
+    let documents = valueField.value
+      .split(/\r?\n/)
+      .map(item => item.trim())
+      .filter(Boolean);
+
+    function sync() {
+      valueField.value = documents.join('\n');
+      list.innerHTML = '';
+      documents.forEach(function(documentName, index) {
+        const item = document.createElement('li');
+        item.className = 'list-group-item d-flex justify-content-between align-items-center';
+
+        const label = document.createElement('span');
+        label.textContent = documentName;
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'btn btn-sm btn-outline-danger';
+        remove.textContent = 'Remove';
+        remove.addEventListener('click', function() {
+          documents.splice(index, 1);
+          sync();
+        });
+
+        item.appendChild(label);
+        item.appendChild(remove);
+        list.appendChild(item);
+      });
+    }
+
+    function addDocument() {
+      const documentName = entry.value.trim();
+      if (!documentName) return;
+      if (!documents.includes(documentName)) {
+        documents.push(documentName);
+      }
+      entry.value = '';
+      sync();
+      entry.focus();
+    }
+
+    addButton.addEventListener('click', addDocument);
+    entry.addEventListener('keydown', function(event) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        addDocument();
+      }
+    });
+
+    sync();
+  });
+}
+
 function initBidFormCrypto() {
   const form = document.getElementById('bid-form');
   if (!form) return;
@@ -379,9 +446,47 @@ function initBidFormCrypto() {
   const projectPublicKey = form.dataset.projectPublicKey;
   const projectId = form.dataset.projectId;
   const submitBtn = document.getElementById('bid-submit-btn');
+  const draftKey = `bid-draft:${projectId}`;
+  const deadline = form.dataset.deadline;
 
   if (submitBtn) {
     submitBtn.disabled = false;
+  }
+
+  const draftFields = ['contractor_alias', 'bid_amount', 'proposal_text'];
+  const deadlineDate = deadline ? new Date(deadline) : null;
+  if (deadlineDate && deadlineDate <= new Date()) {
+    localStorage.removeItem(draftKey);
+  } else {
+    if (deadlineDate) {
+      const msUntilDeadline = deadlineDate.getTime() - Date.now();
+      window.setTimeout(function() {
+        localStorage.removeItem(draftKey);
+      }, Math.max(0, msUntilDeadline));
+    }
+
+    try {
+      const savedDraft = JSON.parse(localStorage.getItem(draftKey) || '{}');
+      draftFields.forEach(function(fieldId) {
+        const field = document.getElementById(fieldId);
+        if (field && savedDraft[fieldId]) field.value = savedDraft[fieldId];
+      });
+    } catch (err) {
+      localStorage.removeItem(draftKey);
+    }
+
+    draftFields.forEach(function(fieldId) {
+      const field = document.getElementById(fieldId);
+      if (!field) return;
+      field.addEventListener('input', function() {
+        const nextDraft = {};
+        draftFields.forEach(function(id) {
+          const draftField = document.getElementById(id);
+          if (draftField) nextDraft[id] = draftField.value;
+        });
+        localStorage.setItem(draftKey, JSON.stringify(nextDraft));
+      });
+    });
   }
 
   form.addEventListener('submit', async function(e) {
@@ -409,7 +514,32 @@ function initBidFormCrypto() {
       document.getElementById('encrypted_proposal_text').value = JSON.stringify(encryptedProposal);
 
       const fileInput = document.getElementById('bid_document');
-      if (fileInput && fileInput.files && fileInput.files[0]) {
+      const requiredFileInputs = Array.from(form.querySelectorAll('.bid-required-document'));
+      if (requiredFileInputs.length > 0) {
+        const missing = requiredFileInputs.find(input => !input.files || !input.files[0]);
+        if (missing) {
+          missing.focus();
+          throw new Error('Upload every required document before submitting.');
+        }
+
+        const documents = [];
+        const hashes = [];
+        for (const input of requiredFileInputs) {
+          const file = input.files[0];
+          const hash = await CryptoUtils.fileHash(file);
+          hashes.push(`${input.dataset.documentName}:${hash}`);
+          documents.push({
+            requirement: input.dataset.documentName,
+            fileName: file.name,
+            contentBase64: await CryptoUtils.fileToBase64(file),
+            hash: hash
+          });
+        }
+        const encryptedDoc = CryptoUtils.encryptForProject(projectPublicKey, JSON.stringify(documents));
+        document.getElementById('encrypted_document').value = JSON.stringify(encryptedDoc);
+        document.getElementById('document_file_name').value = documents.map(doc => doc.fileName).join(', ');
+        document.getElementById('document_file_hash').value = hashes.join('|');
+      } else if (fileInput && fileInput.files && fileInput.files[0]) {
         const file = fileInput.files[0];
         const encryptedDoc = await CryptoUtils.encryptFile(file, projectPublicKey);
         document.getElementById('encrypted_document').value = JSON.stringify(encryptedDoc);
@@ -420,6 +550,7 @@ function initBidFormCrypto() {
       statusMessage.textContent = '✓ Bid encrypted successfully. Submitting...';
       statusDiv.classList.remove('alert-info', 'alert-danger');
       statusDiv.classList.add('alert-success');
+      localStorage.removeItem(draftKey);
 
       form.submit();
     } catch (err) {
@@ -494,9 +625,26 @@ function decryptBidRows(secretKey) {
     if (documentCell && documentEnvelope) {
       const fileName = row.dataset.documentFileName || 'proposal-document';
       const decrypted = CryptoUtils.decryptFromProject(secretKey, JSON.parse(documentEnvelope));
+      documentCell.innerHTML = '';
+      try {
+        const documents = JSON.parse(decrypted);
+        if (Array.isArray(documents)) {
+          documents.forEach(function(doc) {
+            const link = document.createElement('a');
+            link.href = `data:application/octet-stream;base64,${doc.contentBase64}`;
+            link.download = doc.fileName || doc.requirement || 'proposal-document';
+            link.textContent = doc.requirement ? `Download ${doc.requirement}` : `Download ${link.download}`;
+            link.className = 'btn btn-sm btn-outline-secondary me-1 mb-1';
+            documentCell.appendChild(link);
+          });
+          return;
+        }
+      } catch (err) {
+        // Older bids stored a single encrypted document blob.
+      }
+
       const bytes = Uint8Array.from(decrypted, c => c.charCodeAt(0));
       const blob = new Blob([bytes]);
-      documentCell.innerHTML = '';
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = fileName;
