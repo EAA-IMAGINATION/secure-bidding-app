@@ -29,16 +29,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Base64 encoding/decoding helpers
 const CryptoUtils = {
-  // Convert bytes to base64 string
+  // Convert bytes to base64 string (chunked to avoid call-stack overflows on large files)
   toBase64(bytes) {
     if (typeof bytes === 'string') {
       return btoa(bytes);
     }
-    return btoa(String.fromCharCode(...new Uint8Array(bytes)));
+    const uint8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+    return this.arrayBufferToBase64(uint8);
   },
 
   arrayBufferToBase64(buffer) {
-    const bytes = new Uint8Array(buffer);
+    const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
     let binary = '';
     const chunkSize = 0x8000;
     for (let i = 0; i < bytes.length; i += chunkSize) {
@@ -170,13 +171,16 @@ const CryptoUtils = {
 
   // Encrypt bid amount or proposal using project public key
   encryptForProject(publicKeyBase64, plaintext) {
+    const msg = new TextEncoder().encode(plaintext);
+    return this.encryptBytesForProject(publicKeyBase64, msg);
+  },
+
+  encryptBytesForProject(publicKeyBase64, msg) {
     const projectPub = this.fromBase64(publicKeyBase64);
     const eph = nacl.box.keyPair();
     const nonce = nacl.randomBytes(nacl.box.nonceLength);
-    
-    const msg = new TextEncoder().encode(plaintext);
     const cipher = nacl.box(msg, nonce, projectPub, eph.secretKey);
-    
+
     return {
       ephemeralPublicKey: this.toBase64(eph.publicKey),
       nonce: this.toBase64(nonce),
@@ -198,11 +202,8 @@ const CryptoUtils = {
 
   // Encrypt file content
   async encryptFile(file, publicKeyBase64) {
-    const buffer = await file.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
-    const plaintext = String.fromCharCode(...bytes);
-    
-    return this.encryptForProject(publicKeyBase64, plaintext);
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    return this.encryptBytesForProject(publicKeyBase64, bytes);
   }
 };
 
@@ -497,12 +498,11 @@ function initBidFormCrypto() {
       return false;
     }
 
-    const statusDiv = document.getElementById('bid-crypto-status');
-    const statusMessage = document.getElementById('bid-crypto-message');
-
     try {
-      statusDiv.style.display = 'block';
-      statusMessage.textContent = 'Encrypting your bid...';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+      }
 
       const bidAmount = document.getElementById('bid_amount').value.toString();
       const proposalText = document.getElementById('proposal_text').value;
@@ -547,17 +547,16 @@ function initBidFormCrypto() {
         document.getElementById('document_file_hash').value = await CryptoUtils.fileHash(file);
       }
 
-      statusMessage.textContent = '✓ Bid encrypted successfully. Submitting...';
-      statusDiv.classList.remove('alert-info', 'alert-danger');
-      statusDiv.classList.add('alert-success');
       localStorage.removeItem(draftKey);
 
       form.submit();
     } catch (err) {
       console.error('Bid encryption error:', err);
-      statusMessage.textContent = 'Error: ' + err.message;
-      statusDiv.classList.remove('alert-info', 'alert-success');
-      statusDiv.classList.add('alert-danger');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Bid';
+      }
+      alert(err.message || 'Could not submit bid. Please try again.');
     }
   });
 }
