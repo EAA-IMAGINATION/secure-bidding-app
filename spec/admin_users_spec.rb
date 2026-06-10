@@ -19,7 +19,6 @@ describe 'Admin users management' do
 
   def stub_admin_profile
     stub_request(:get, "#{base_url}/accounts/#{admin_id}")
-      .with(headers: { 'Authorization' => "Bearer #{token}" })
       .to_return(
         status: 200,
         body: {
@@ -174,6 +173,65 @@ describe 'Admin users management' do
     _(last_response.body).must_include 'Manage role for admin-target'
     _(last_response.body).must_match(/<option[^>]*selected[^>]*value="admin"|<option[^>]*value="admin"[^>]*selected/)
     _(last_response.body).wont_match(/<option[^>]*selected[^>]*value="member"|<option[^>]*value="member"[^>]*selected/)
+  end
+
+  it 'does not offer role management for the current admin in the users dashboard' do
+    login_as_admin
+
+    stub_request(:get, "#{base_url}/accounts")
+      .with(headers: { 'Authorization' => "Bearer #{token}" })
+      .to_return(
+        status: 200,
+        body: {
+          accounts: [
+            {
+              id: admin_id,
+              username: 'admin-user',
+              email: 'admin@example.com',
+              system_role: 'admin',
+              email_verified: true,
+              capabilities: { admin: true, can_manage_accounts: true }
+            }
+          ]
+        }.to_json,
+        headers: { 'Content-Type' => 'application/json' }
+      )
+
+    get '/admin/users'
+
+    _(last_response.status).must_equal 200
+    _(last_response.body).must_include 'Current admin'
+    _(last_response.body).wont_include "/admin/users/#{admin_id}/roles"
+    _(last_response.body).wont_include '>Promote<'
+  end
+
+  it 'blocks direct self role management for the current admin' do
+    login_as_admin
+
+    stub_request(:get, "#{base_url}/accounts/#{admin_id}")
+      .with(headers: { 'Authorization' => "Bearer #{token}" })
+      .to_return(
+        status: 200,
+        body: {
+          id: admin_id,
+          username: 'admin-user',
+          email: 'admin@example.com',
+          system_role: 'admin',
+          email_verified: true,
+          capabilities: { admin: true, can_manage_accounts: true }
+        }.to_json,
+        headers: { 'Content-Type' => 'application/json' }
+      )
+
+    get "/admin/users/#{admin_id}/roles"
+
+    _(last_response.status).must_equal 302
+    _(last_response.location).must_equal "/admin/users/#{admin_id}"
+
+    follow_redirect!
+
+    _(last_response.body).must_include 'Admins cannot change their own account role'
+    _(last_response.body).must_include 'Current admin'
   end
 
   it 'promotes an existing account to admin via roles form' do

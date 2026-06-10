@@ -615,6 +615,16 @@ module SecureBiddingApp
       roles.first.to_s
     end
 
+    def same_account?(user, current_account)
+      return false unless user && current_account
+
+      user['id'].to_s == current_account['id'].to_s
+    end
+
+    def can_manage_user_role?(user, current_account)
+      can_manage_accounts?(current_account) && !same_account?(user, current_account)
+    end
+
     def admin?(current_account)
       return false unless current_account
 
@@ -1298,6 +1308,11 @@ module SecureBiddingApp
       end
 
       user = FetchUserDetail.new(App.config).call(user_id)
+      if same_account?(user, @current_account)
+        flash[:error] = 'Admins cannot change their own account role'
+        return routing.redirect "/admin/users/#{user_id}"
+      end
+
       roles = AssignSystemRole::VALID_ROLES
       current_role = primary_account_role(user)
       view :admin_user_roles,
@@ -1323,6 +1338,10 @@ module SecureBiddingApp
       end
 
       system_role = routing.params['system_role'].to_s.strip
+      if user_id.to_s == @current_account['id'].to_s
+        flash[:error] = 'Admins cannot change their own account role'
+        return routing.redirect "/admin/users/#{user_id}"
+      end
 
       AssignSystemRole.new(App.config).call(
         account_id: user_id,
@@ -1346,9 +1365,9 @@ module SecureBiddingApp
       response.status = e.status.to_i
       user = FetchUserDetail.new(App.config).call(user_id)
       roles = AssignSystemRole::VALID_ROLES
-      current_roles = system_roles_of(user)
+      current_role = primary_account_role(user)
       view :admin_user_roles,
-           locals: { user: user, roles: roles, current_roles: current_roles,
+           locals: { user: user, roles: roles, current_role: current_role,
                      current_account: @current_account }
     end
   end

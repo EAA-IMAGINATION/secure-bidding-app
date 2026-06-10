@@ -16,9 +16,14 @@ div class="row justify-content-center mt-4"
             textarea class="form-control" id="description" name="description" rows="4" placeholder="Describe the work, goals, and acceptance criteria"
 
           div class="mb-3"
-            label for="required_documents" class="form-label" Required Bid Documents
-            textarea class="form-control" id="required_documents" name="required_documents" rows="3" placeholder="One document per line, e.g. Technical proposal"
-            small class="form-text text-muted" Bidders must upload every listed document before submitting.
+            label for="required_document_entry" class="form-label" Required Bid Documents
+            div data-required-documents-builder=""
+              div class="input-group"
+                input type="text" class="form-control" id="required_document_entry" data-required-document-entry="" placeholder="Technical proposal"
+                button type="button" class="btn btn-outline-primary" data-add-required-document="" Add
+              ul class="list-group mt-2" data-required-documents-list=""
+              textarea id="required_documents" name="required_documents" data-required-documents-value="" hidden=true
+            small class="form-text text-muted" Add each required upload separately. Bidders must upload every listed document before submitting.
 
           div class="mb-3"
             label for="budget_cents" class="form-label" Budget (in cents)
@@ -38,9 +43,5 @@ div class="row justify-content-center mt-4"
 
           input type="hidden" id="nacl_public_key" name="nacl_public_key" value=""
           input type="hidden" id="nacl_encrypted_private_key" name="nacl_encrypted_private_key" value=""
-
-          div class="mb-3" id="crypto-status" style="display: none;"
-            div class="alert alert-info" role="alert"
-              span id="crypto-message" Preparing secure bidding...
 
           button type="submit" class="btn btn-primary w-100" id="submit-btn" disabled=true Create Project

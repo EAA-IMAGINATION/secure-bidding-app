@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
+  initRequiredDocumentsBuilder();
   initProjectFormCrypto();
   initBidFormCrypto();
   initProjectRevealPanels();
@@ -352,8 +353,6 @@ function initProjectFormCrypto() {
   const form = document.getElementById('project-form');
   if (!form) return;
 
-  const statusDiv = document.getElementById('crypto-status');
-  const statusMessage = document.getElementById('crypto-message');
   const submitBtn = document.getElementById('submit-btn');
 
   try {
@@ -363,19 +362,10 @@ function initProjectFormCrypto() {
       CryptoUtils.wrapPrivateKey(keyPair.secretKey)
     );
 
-    statusMessage.textContent = 'Secure bidding is ready for this project.';
-    const alertBox = statusDiv.querySelector('.alert') || statusDiv;
-    alertBox.classList.remove('alert-info', 'alert-danger');
-    alertBox.classList.add('alert-success');
-    statusDiv.style.display = 'block';
     submitBtn.disabled = false;
   } catch (err) {
     console.error('Crypto error:', err);
-    statusMessage.textContent = 'Secure bidding setup failed: ' + err.message;
-    const alertBox = statusDiv.querySelector('.alert') || statusDiv;
-    alertBox.classList.remove('alert-info', 'alert-success');
-    alertBox.classList.add('alert-danger');
-    statusDiv.style.display = 'block';
+    alert('Secure bidding setup failed. Please reload the page and try again.');
     submitBtn.disabled = true;
   }
 
@@ -385,6 +375,67 @@ function initProjectFormCrypto() {
       e.preventDefault();
       alert('Bidding deadline must be in the future');
     }
+  });
+}
+
+function initRequiredDocumentsBuilder() {
+  document.querySelectorAll('[data-required-documents-builder]').forEach(function(builder) {
+    const entry = builder.querySelector('[data-required-document-entry]');
+    const addButton = builder.querySelector('[data-add-required-document]');
+    const list = builder.querySelector('[data-required-documents-list]');
+    const valueField = builder.querySelector('[data-required-documents-value]');
+    if (!entry || !addButton || !list || !valueField) return;
+
+    let documents = valueField.value
+      .split(/\r?\n/)
+      .map(item => item.trim())
+      .filter(Boolean);
+
+    function sync() {
+      valueField.value = documents.join('\n');
+      list.innerHTML = '';
+      documents.forEach(function(documentName, index) {
+        const item = document.createElement('li');
+        item.className = 'list-group-item d-flex justify-content-between align-items-center';
+
+        const label = document.createElement('span');
+        label.textContent = documentName;
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'btn btn-sm btn-outline-danger';
+        remove.textContent = 'Remove';
+        remove.addEventListener('click', function() {
+          documents.splice(index, 1);
+          sync();
+        });
+
+        item.appendChild(label);
+        item.appendChild(remove);
+        list.appendChild(item);
+      });
+    }
+
+    function addDocument() {
+      const documentName = entry.value.trim();
+      if (!documentName) return;
+      if (!documents.includes(documentName)) {
+        documents.push(documentName);
+      }
+      entry.value = '';
+      sync();
+      entry.focus();
+    }
+
+    addButton.addEventListener('click', addDocument);
+    entry.addEventListener('keydown', function(event) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        addDocument();
+      }
+    });
+
+    sync();
   });
 }
 
