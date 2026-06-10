@@ -73,4 +73,64 @@ describe 'GET /projects/:id' do
     _(last_response.body).must_include 'Public Project'
     _(last_response.body).must_include '/auth/login'
   end
+
+  it 'renders project detail for managers with bid count enrichment' do
+    session = {}
+    CurrentSession.new(session).store_current_account(
+      'id' => '00000000-0000-0000-0000-000000000001',
+      'username' => 'admin-user',
+      'token' => 'manager-token',
+      'email_verified' => true,
+      'system_role' => 'admin'
+    )
+
+    account_body = {
+      id: '00000000-0000-0000-0000-000000000001',
+      username: 'admin-user',
+      email_verified: true,
+      system_role: 'admin',
+      system_roles: ['admin'],
+      capabilities: {},
+      policy: {}
+    }.to_json
+    stub_request(:get, "#{base_url}/accounts/00000000-0000-0000-0000-000000000001")
+      .with(headers: { 'Authorization' => 'Bearer manager-token' })
+      .to_return(status: 200, body: account_body)
+
+    project_body = {
+      id: project_id,
+      title: 'Managed Project',
+      description: nil,
+      required_documents: [],
+      budget_cents: 50_000,
+      state: 'published',
+      bidding_deadline: '2026-06-11T08:00:00+00:00',
+      nacl_public_key: 'abc',
+      bidding_closed: false,
+      policy: {
+        show: true,
+        update: true,
+        destroy: true,
+        manage_memberships: true,
+        manage_milestones: true,
+        view_bid_count: true
+      }
+    }.to_json
+    stub_request(:get, "#{base_url}/projects/#{project_id}")
+      .with(headers: { 'Authorization' => 'Bearer manager-token' })
+      .to_return(status: 200, body: project_body)
+    stub_request(:get, "#{base_url}/projects/#{project_id}/bid_count")
+      .with(headers: { 'Authorization' => 'Bearer manager-token' })
+      .to_return(status: 200, body: { project_id: project_id, bid_count: 2 }.to_json)
+    stub_request(:get, "#{base_url}/projects/#{project_id}/milestones")
+      .with(headers: { 'Authorization' => 'Bearer manager-token' })
+      .to_return(status: 200, body: { project_id: project_id, milestones: [] }.to_json)
+
+    get "/projects/#{project_id}", {}, 'rack.session' => session
+
+    _(last_response.status).must_equal 200
+    _(last_response.body).must_include 'Managed Project'
+    _(last_response.body).must_include 'Sealed bids received:'
+    _(last_response.body).must_include 'Edit Project'
+  end
 end

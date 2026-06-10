@@ -807,18 +807,19 @@ module SecureBiddingApp
       token = get_auth_token
       return Project.from_hash(data) unless token
 
+      project_id = project['id']
       if project.allowed?('view_bid_count')
-        count_payload = FetchProjectBidCount.new(App.config).call(project.id, auth_token: token)
+        count_payload = FetchProjectBidCount.new(App.config).call(project_id, auth_token: token)
         data['bid_count'] = count_payload['bid_count']
       end
 
       if project.allowed?('manage_milestones')
-        milestone_payload = FetchProjectMilestones.new(App.config).call(project.id, auth_token: token)
+        milestone_payload = FetchProjectMilestones.new(App.config).call(project_id, auth_token: token)
         data['milestones'] = milestone_payload['milestones'] || []
       end
 
       if project.allowed?('view_bids')
-        bid_payload = FetchProjectBidSubmissions.new(App.config).call(project.id, auth_token: token)
+        bid_payload = FetchProjectBidSubmissions.new(App.config).call(project_id, auth_token: token)
         data['bids'] = bid_payload['bid_submissions'] || []
       end
 
