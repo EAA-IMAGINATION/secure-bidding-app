@@ -26,12 +26,16 @@
                 = project['state'].to_s.tr('_', ' ').capitalize
             td
               = project_relationship_label(project, relationship_label)
+              - if project['my_bid_submission']
+                span.badge.bg-success.ms-1 Bid submitted
             td
               .btn-group role="group"
                 a.btn.btn-sm.btn-info href="/projects/#{project['id']}" View
                 - if allowed?(project, 'edit')
                   a.btn.btn-sm.btn-warning href="/projects/#{project['id']}/edit" Edit
-                - if project['state'] == 'published' && allowed?(project, 'submit_bid')
+                - if project['state'] == 'published' && allowed?(project, 'submit_bid') && project['my_bid_submission']
+                  a.btn.btn-sm.btn-primary href="/projects/#{project['id']}" Edit Bid
+                - elsif project['state'] == 'published' && allowed?(project, 'submit_bid')
                   a.btn.btn-sm.btn-primary href="/projects/#{project['id']}" Bid
 - else
   .alert.alert-light.border No projects in this view yet.

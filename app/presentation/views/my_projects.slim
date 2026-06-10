@@ -1,8 +1,10 @@
 - filter ||= 'all'
 - owned_projects ||= []
 - freelancer_projects ||= []
+- bidder_projects ||= []
 - active_owned_projects ||= []
 - active_freelancer_projects ||= []
+- active_bidder_projects ||= []
 - closed_owned_projects ||= []
 - closed_freelancer_projects ||= []
 
@@ -11,7 +13,7 @@
     .col-12
       h1.mb-3 My Projects
       p.text-muted.mb-4
-        | Track active work, in-progress delivery, payment status, and completed projects you own or delivered as a freelancer.
+        | Track projects you own, open bids you submitted, and freelancer work awarded to you.
 
       ul.nav.nav-pills.mb-4.flex-wrap
         li.nav-item
@@ -20,6 +22,8 @@
           a.nav-link class=("active" if filter == 'active') href="/projects/my?filter=active" Active
         li.nav-item
           a.nav-link class=("active" if filter == 'owned') href="/projects/my?filter=owned" Owned
+        li.nav-item
+          a.nav-link class=("active" if filter == 'bids') href="/projects/my?filter=bids" My Bids
         li.nav-item
           a.nav-link class=("active" if filter == 'freelancer') href="/projects/my?filter=freelancer" Freelancer
         li.nav-item
@@ -33,6 +37,13 @@
           .alert.alert-light.border No owned projects yet.
           - if can_create_projects?(@current_account)
             a.btn.btn-primary href="/projects/new" Create New Project
+
+      - if filter == 'all' || filter == 'bids'
+        h2.h4.mt-5 Projects you bid on
+        - if bidder_projects.any?
+          == render('my_projects_table', locals: { project_rows: bidder_projects, relationship_label: 'Bidder' })
+        - else
+          .alert.alert-light.border No submitted bids yet. Browse published projects from the home page to place a bid.
 
       - if filter == 'all' || filter == 'freelancer'
         h2.h4.mt-5 Freelancer projects
@@ -48,6 +59,13 @@
           == render('my_projects_table', locals: { project_rows: active_owned_projects, relationship_label: 'Owner' })
         - else
           .alert.alert-light.border No active owned projects right now.
+
+        h2.h4.mt-5 Open bids awaiting award
+        p.text-muted.small Published projects where you submitted a bid and the owner has not awarded yet.
+        - if active_bidder_projects.any?
+          == render('my_projects_table', locals: { project_rows: active_bidder_projects, relationship_label: 'Bidder' })
+        - else
+          .alert.alert-light.border No open bids right now.
 
         h2.h4.mt-5 Active as freelancer
         p.text-muted.small Projects awarded to you that are still in progress or awaiting payment.

@@ -749,7 +749,7 @@ module SecureBiddingApp
       projects = FetchProjects.new(App.config).call(auth_token: get_auth_token)
       buckets = partition_my_projects(projects)
       filter = routing.params['filter'].to_s.strip
-      filter = 'all' unless %w[all owned freelancer active closed].include?(filter)
+      filter = 'all' unless %w[all owned freelancer bids active closed].include?(filter)
 
       view :my_projects,
            locals: {
@@ -757,8 +757,10 @@ module SecureBiddingApp
              projects: projects,
              owned_projects: buckets[:owned],
              freelancer_projects: buckets[:freelancer],
+             bidder_projects: buckets[:bidder],
              active_owned_projects: buckets[:active_owned],
              active_freelancer_projects: buckets[:active_freelancer],
+             active_bidder_projects: buckets[:active_bidder],
              closed_owned_projects: buckets[:closed_owned],
              closed_freelancer_projects: buckets[:closed_freelancer],
              filter: filter
@@ -772,8 +774,10 @@ module SecureBiddingApp
              projects: [],
              owned_projects: [],
              freelancer_projects: [],
+             bidder_projects: [],
              active_owned_projects: [],
              active_freelancer_projects: [],
+             active_bidder_projects: [],
              closed_owned_projects: [],
              closed_freelancer_projects: [],
              filter: 'all'
@@ -785,17 +789,21 @@ module SecureBiddingApp
     def partition_my_projects(projects)
       owned = []
       freelancer = []
+      bidder = []
 
       (projects || []).each do |project|
         owned << project if project_owned?(project)
         freelancer << project if project_freelancer?(project)
+        bidder << project if project_bidder?(project)
       end
 
       {
         owned: owned,
         freelancer: freelancer,
+        bidder: bidder,
         active_owned: owned.select { |project| project_active?(project) },
         active_freelancer: freelancer.select { |project| project_active?(project) },
+        active_bidder: bidder.select { |project| project_active?(project) },
         closed_owned: owned.select { |project| project_closed?(project) },
         closed_freelancer: freelancer.select { |project| project_closed?(project) }
       }
@@ -811,6 +819,17 @@ module SecureBiddingApp
 
     def project_freelancer?(project)
       allowed?(project, 'view_as_awarded_bidder')
+    end
+
+    def project_bidder?(project)
+      project_has_bid?(project) && !project_freelancer?(project)
+    end
+
+    def project_has_bid?(project)
+      bid = project['my_bid_submission']
+      return true if bid.is_a?(Hash) && !bid['id'].to_s.strip.empty?
+
+      allowed?(project, 'has_bid')
     end
 
     def project_closed?(project)
@@ -841,8 +860,12 @@ module SecureBiddingApp
         'Owner, Freelancer'
       elsif project_freelancer?(project)
         'Freelancer'
+      elsif project_owned?(project) && project_has_bid?(project)
+        'Owner, Bidder'
       elsif project_owned?(project)
         'Owner'
+      elsif project_has_bid?(project)
+        'Bidder'
       else
         fallback
       end

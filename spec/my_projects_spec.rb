@@ -64,6 +64,39 @@ describe 'My projects page' do
     }
   end
 
+  it 'shows projects the account bid on in the bids section' do
+    login_as_owner
+    stub_owner_profile
+
+    stub_request(:get, "#{base_url}/projects")
+      .with(headers: { 'Authorization' => "Bearer #{token}" })
+      .to_return(
+        status: 200,
+        body: {
+          projects: [
+            project_payload(id: 'open-owned', title: 'Open Owned', state: 'published', owner: true),
+            {
+              id: 'bid-project',
+              title: 'Bid Project',
+              budget_cents: 88_000,
+              state: 'published',
+              policy: { bid: true, has_bid_submission: true },
+              my_bid_submission: { id: 'bid-1', contractor_alias: 'owner-user' }
+            }
+          ]
+        }.to_json,
+        headers: { 'Content-Type' => 'application/json' }
+      )
+
+    get '/projects/my?filter=bids'
+
+    _(last_response.status).must_equal 200
+    _(last_response.body).must_include 'Projects you bid on'
+    _(last_response.body).must_include 'Bid Project'
+    _(last_response.body).must_include 'Bid submitted'
+    _(last_response.body).wont_include 'Open Owned'
+  end
+
   it 'shows owned and freelancer sections with closed filters' do
     login_as_owner
     stub_owner_profile

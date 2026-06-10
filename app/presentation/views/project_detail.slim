@@ -108,8 +108,19 @@ div class="row justify-content-center mt-4"
                             input type="hidden" name="awarded_bid_amount_cents" data-award-amount-cents="" value=""
                             button type="submit" class="btn btn-sm btn-primary" data-confirm="Award this bidder and move the project to in progress?" Select Bidder
 
-      / Submit or edit bid while open
+      / Bidder status
       - my_bid = project && project['my_bid_submission']
+      - if my_bid
+        div class="card mb-4 border-success"
+          div class="card-body"
+            h5 class="card-title" Your Bid
+            p class="mb-0"
+              | You submitted a bid as
+              strong.ms-1 = my_bid['contractor_alias']
+              - if project['state'] == 'published' && !project['bidding_closed']
+                span.text-muted.ms-2 You can update it until the bidding deadline.
+
+      / Submit or edit bid while open
       - if project && project['state'] == 'published' && current_account && allowed?(project, 'submit_bid')
         div class="card mb-4"
           div class="card-body"
