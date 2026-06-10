@@ -671,6 +671,18 @@ module SecureBiddingApp
       format('$%.2f', amount)
     end
 
+    def format_bidding_deadline(value)
+      SecureBiddingApp::TaipeiTime.display(value)
+    end
+
+    def bidding_deadline_input_value(value)
+      SecureBiddingApp::TaipeiTime.input_value(value)
+    end
+
+    def normalize_bidding_deadline_param(value)
+      SecureBiddingApp::TaipeiTime.to_api_iso(value) || value.to_s.strip
+    end
+
     def fetch_published_projects
       FetchProjects.new(App.config).call
     rescue FetchProjects::ServiceError => e
@@ -944,7 +956,7 @@ module SecureBiddingApp
         required_documents: project_required_documents_from_params(routing.params),
         budget_cents: routing.params['budget_cents'].to_s.strip.empty? ? nil : routing.params['budget_cents'].to_s.strip.to_i,
         state: routing.params['state'].to_s.strip,
-        bidding_deadline: routing.params['bidding_deadline'].to_s.strip,
+        bidding_deadline: normalize_bidding_deadline_param(routing.params['bidding_deadline']),
         nacl_public_key: routing.params['nacl_public_key'].to_s.strip,
         nacl_encrypted_private_key: routing.params['nacl_encrypted_private_key'].to_s.strip
       )
@@ -1197,7 +1209,7 @@ module SecureBiddingApp
         required_documents: project_required_documents_from_params(routing.params),
         budget_cents: routing.params['budget_cents'].to_s.strip.empty? ? nil : routing.params['budget_cents'].to_s.strip.to_i,
         state: routing.params['state'].to_s.strip,
-        bidding_deadline: routing.params['bidding_deadline'].to_s.strip
+        bidding_deadline: normalize_bidding_deadline_param(routing.params['bidding_deadline'])
       )
 
       if validation.failure?

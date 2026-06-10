@@ -1,1 +1,1 @@
-web: bundle exec rackup -o 0.0.0.0 -p $PORT
+web: TZ=Asia/Taipei bundle exec rackup -o 0.0.0.0 -p $PORT

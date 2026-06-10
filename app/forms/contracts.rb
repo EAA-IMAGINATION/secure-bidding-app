@@ -54,13 +54,11 @@ module SecureBiddingApp
       rule(:bidding_deadline) do
         next if value.to_s.empty?
 
-        begin
-          deadline = DateTime.iso8601(value)
-          if deadline <= DateTime.now
-            key.failure('must be in the future')
-          end
-        rescue ArgumentError, TypeError
-          key.failure('must be a valid ISO 8601 date and time')
+        deadline = SecureBiddingApp::TaipeiTime.parse(value)
+        if deadline.nil?
+          key.failure('must be a valid date and time')
+        elsif deadline <= Time.now
+          key.failure('must be in the future')
         end
       end
 
@@ -100,11 +98,7 @@ module SecureBiddingApp
       rule(:bidding_deadline) do
         next if value.to_s.empty?
 
-        begin
-          DateTime.iso8601(value)
-        rescue ArgumentError, TypeError
-          key.failure('must be a valid ISO 8601 date and time')
-        end
+        key.failure('must be a valid date and time') if SecureBiddingApp::TaipeiTime.parse(value).nil?
       end
     end
 

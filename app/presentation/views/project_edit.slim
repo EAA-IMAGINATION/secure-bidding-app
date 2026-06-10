@@ -35,8 +35,8 @@ div class="row justify-content-center mt-4"
 
             div class="mb-3"
               label for="bidding_deadline" class="form-label" Bidding Deadline
-              - deadline_value = (Time.parse(project['bidding_deadline']).strftime('%Y-%m-%dT%H:%M') rescue '')
-              input type="datetime-local" class="form-control" id="bidding_deadline" name="bidding_deadline" value=deadline_value
+              input type="datetime-local" class="form-control" id="bidding_deadline" name="bidding_deadline" value=bidding_deadline_input_value(project['bidding_deadline'])
+              small class="form-text text-muted" Times use Taiwan local time (UTC+8).
 
             div class="mb-3"
               label for="state" class="form-label" Project State
