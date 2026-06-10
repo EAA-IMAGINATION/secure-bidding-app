@@ -108,16 +108,21 @@ div class="row justify-content-center mt-4"
                             input type="hidden" name="awarded_bid_amount_cents" data-award-amount-cents="" value=""
                             button type="submit" class="btn btn-sm btn-primary" data-confirm="Award this bidder and move the project to in progress?" Select Bidder
 
-      / Submit bid while open
+      / Submit or edit bid while open
+      - my_bid = project && project['my_bid_submission']
       - if project && project['state'] == 'published' && current_account && allowed?(project, 'submit_bid')
         div class="card mb-4"
           div class="card-body"
-            h5 class="card-title" Submit a Bid
+            - if my_bid
+              h5 class="card-title" Edit Your Bid
+              p class="text-muted" You already submitted a bid on this project. Update your offer below before the deadline.
+            - else
+              h5 class="card-title" Submit a Bid
             - if project['nacl_public_key']
-              form method="post" action="/projects/#{project['id']}/bids" id="bid-form" data-project-public-key=project['nacl_public_key'] data-project-id=project['id'] data-deadline=project['bidding_deadline']
+              form method="post" action="/projects/#{project['id']}/bids" id="bid-form" data-project-public-key=project['nacl_public_key'] data-project-id=project['id'] data-deadline=project['bidding_deadline'] data-existing-contractor-alias=(my_bid ? my_bid['contractor_alias'] : nil) data-editing-bid=(my_bid ? 'true' : 'false')
                 div class="mb-3"
                   label for="contractor_alias" class="form-label" Contractor Alias
-                  input type="text" class="form-control" id="contractor_alias" name="contractor_alias" required=true
+                  input type="text" class="form-control" id="contractor_alias" name="contractor_alias" required=true value=(my_bid ? my_bid['contractor_alias'] : nil)
                 div class="mb-3"
                   label for="bid_amount" class="form-label" Bid Amount (cents)
                   input type="number" class="form-control" id="bid_amount" name="bid_amount" required=true min="0"
@@ -140,7 +145,7 @@ div class="row justify-content-center mt-4"
                 input type="hidden" id="encrypted_document" name="encrypted_document" value=""
                 input type="hidden" id="document_file_name" name="document_file_name" value=""
                 input type="hidden" id="document_file_hash" name="document_file_hash" value=""
-                button type="submit" class="btn btn-primary" id="bid-submit-btn" Submit Bid
+                button type="submit" class="btn btn-primary" id="bid-submit-btn" = my_bid ? 'Update Bid' : 'Submit Bid'
             - else
               div class="alert alert-danger" Project encryption keys are not configured.
 

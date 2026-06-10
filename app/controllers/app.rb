@@ -1063,7 +1063,7 @@ module SecureBiddingApp
 
       validated = validation.to_h
 
-      SubmitBid.new(App.config).call(
+      result = SubmitBid.new(App.config).call(
         project_id: project_id,
         bidder_account_id: @current_account['id'],
         contractor_alias: validated[:contractor_alias],
@@ -1075,8 +1075,8 @@ module SecureBiddingApp
         auth_token: @current_account['token']
       )
 
-      flash[:notice] = 'Bid submitted successfully'
-      routing.redirect "/projects/#{project_id}"
+      flash[:notice] = result['status'] == 'updated' ? 'Bid updated successfully' : 'Bid submitted successfully'
+      routing.redirect '/projects/my'
     rescue SubmitBid::ValidationError => e
       flash.now[:error] = e.message
       response.status = 400

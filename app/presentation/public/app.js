@@ -447,8 +447,11 @@ function initBidFormCrypto() {
   const projectPublicKey = form.dataset.projectPublicKey;
   const projectId = form.dataset.projectId;
   const submitBtn = document.getElementById('bid-submit-btn');
+  const editingBid = form.dataset.editingBid === 'true';
+  const submitLabel = editingBid ? 'Update Bid' : 'Submit Bid';
   const draftKey = `bid-draft:${projectId}`;
   const deadline = form.dataset.deadline;
+  const existingAlias = form.dataset.existingContractorAlias;
 
   if (submitBtn) {
     submitBtn.disabled = false;
@@ -470,8 +473,13 @@ function initBidFormCrypto() {
       const savedDraft = JSON.parse(localStorage.getItem(draftKey) || '{}');
       draftFields.forEach(function(fieldId) {
         const field = document.getElementById(fieldId);
-        if (field && savedDraft[fieldId]) field.value = savedDraft[fieldId];
+        if (!field || field.value) return;
+        if (savedDraft[fieldId]) field.value = savedDraft[fieldId];
       });
+      if (existingAlias) {
+        const aliasField = document.getElementById('contractor_alias');
+        if (aliasField && !aliasField.value) aliasField.value = existingAlias;
+      }
     } catch (err) {
       localStorage.removeItem(draftKey);
     }
@@ -501,7 +509,7 @@ function initBidFormCrypto() {
     try {
       if (submitBtn) {
         submitBtn.disabled = true;
-        submitBtn.textContent = 'Submitting...';
+        submitBtn.textContent = editingBid ? 'Updating...' : 'Submitting...';
       }
 
       const bidAmount = document.getElementById('bid_amount').value.toString();
@@ -554,7 +562,7 @@ function initBidFormCrypto() {
       console.error('Bid encryption error:', err);
       if (submitBtn) {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Submit Bid';
+        submitBtn.textContent = submitLabel;
       }
       alert(err.message || 'Could not submit bid. Please try again.');
     }

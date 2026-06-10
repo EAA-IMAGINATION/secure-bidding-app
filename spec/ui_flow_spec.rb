@@ -86,8 +86,12 @@ describe 'Frontend UI flows' do
         id: project_id,
         title: 'Website Redesign',
         budget_cents: 150_000,
-        state: 'published'
+        state: 'published',
+        policy: { bid: true }
       }.to_json, headers: { 'Content-Type' => 'application/json' })
+
+    stub_request(:get, "#{base_url}/projects")
+      .to_return(status: 200, body: { projects: [] }.to_json, headers: { 'Content-Type' => 'application/json' })
 
     stub_request(:post, "#{base_url}/projects/#{project_id}/bids")
       .with do |request|
@@ -110,12 +114,11 @@ describe 'Frontend UI flows' do
          encrypted_proposal_text: encrypted_proposal
 
     _(last_response.status).must_equal 302
-    _(last_response.location).must_equal "/projects/#{project_id}"
+    _(last_response.location).must_equal '/projects/my'
 
     follow_redirect!
 
     _(last_response.status).must_equal 200
-    _(last_response.body).must_include 'Website Redesign'
     _(last_response.body).must_include 'Bid submitted successfully'
     _(last_response.body).wont_include 'bid-1'
   end
