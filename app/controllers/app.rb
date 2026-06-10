@@ -642,6 +642,8 @@ module SecureBiddingApp
     # Check API-provided policy summaries to determine whether an action is allowed on a resource.
     # If the API did not return a policy for the resource, fall back to the existing server-side checks in views.
     def allowed?(resource, action)
+      return resource.allowed?(action) if resource.is_a?(SecureBiddingApp::Project)
+
       # Grab policy from Hash-like resources (support model objects that implement [] / dig)
       policy = if resource.respond_to?(:[]) then resource['policy'] elsif resource.is_a?(Hash) then resource['policy'] else nil end
       return false unless policy.is_a?(Hash) && !policy.empty?
@@ -684,10 +686,14 @@ module SecureBiddingApp
     end
 
     def fetch_published_projects
-      FetchProjects.new(App.config).call
+      catalog_projects(FetchProjects.new(App.config).call)
     rescue FetchProjects::ServiceError => e
       App.logger.warn "Failed to fetch projects: #{e.message}"
       []
+    end
+
+    def catalog_projects(projects)
+      (projects || []).select { |project| allowed?(project, 'available_for_bidding') }
     end
 
     def get_auth_token
@@ -803,7 +809,7 @@ module SecureBiddingApp
         bidder: bidder,
         active_owned: owned.select { |project| project_active?(project) },
         active_freelancer: freelancer.select { |project| project_active?(project) },
-        active_bidder: bidder.select { |project| project_active?(project) },
+        active_bidder: bidder.select { |project| allowed?(project, 'track_open_bid') },
         closed_owned: owned.select { |project| project_closed?(project) },
         closed_freelancer: freelancer.select { |project| project_closed?(project) }
       }

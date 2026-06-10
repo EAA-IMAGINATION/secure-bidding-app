@@ -19,7 +19,9 @@ module SecureBiddingApp
       'process_payment' => 'process_payment',
       'acknowledge_payment' => 'acknowledge_payment',
       'view_as_awarded_bidder' => 'view_as_awarded_bidder',
-      'has_bid' => 'has_bid_submission'
+      'has_bid' => 'has_bid_submission',
+      'available_for_bidding' => 'available_for_bidding',
+      'track_open_bid' => 'track_open_bid'
     }.freeze
 
     def self.from_hash(data)

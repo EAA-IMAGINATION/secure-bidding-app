@@ -64,6 +64,42 @@ describe 'My projects page' do
     }
   end
 
+  it 'hides closed bids from the active open-bids section via policy' do
+    login_as_owner
+    stub_owner_profile
+
+    stub_request(:get, "#{base_url}/projects")
+      .with(headers: { 'Authorization' => "Bearer #{token}" })
+      .to_return(
+        status: 200,
+        body: {
+          projects: [
+            {
+              id: 'open-bid-project',
+              title: 'Open Bid Project',
+              budget_cents: 88_000,
+              state: 'published',
+              policy: { has_bid_submission: true, track_open_bid: true, available_for_bidding: true }
+            },
+            {
+              id: 'closed-bid-project',
+              title: 'Closed Bid Project',
+              budget_cents: 88_000,
+              state: 'published',
+              policy: { has_bid_submission: true, track_open_bid: false, available_for_bidding: false }
+            }
+          ]
+        }.to_json,
+        headers: { 'Content-Type' => 'application/json' }
+      )
+
+    get '/projects/my?filter=active'
+
+    _(last_response.status).must_equal 200
+    _(last_response.body).must_include 'Open Bid Project'
+    _(last_response.body).wont_include 'Closed Bid Project'
+  end
+
   it 'shows projects the account bid on in the bids section' do
     login_as_owner
     stub_owner_profile

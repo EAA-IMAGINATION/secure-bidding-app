@@ -30,6 +30,36 @@ describe 'App Controller' do
       _(last_response.body).must_include 'Welcome'
     end
 
+    it 'lists only policy-available projects on the home catalog' do
+      stub_request(:get, "#{SecureBiddingApp::App.config.API_URL}/projects")
+        .to_return(
+          status: 200,
+          body: {
+            projects: [
+              {
+                id: 'open-project',
+                title: 'Open Bids',
+                budget_cents: 50_000,
+                state: 'published',
+                policy: { available_for_bidding: true }
+              },
+              {
+                id: 'closed-project',
+                title: 'Closed Bids',
+                budget_cents: 50_000,
+                state: 'published',
+                policy: { available_for_bidding: false }
+              }
+            ]
+          }.to_json
+        )
+
+      get '/'
+
+      _(last_response.body).must_include 'Open Bids'
+      _(last_response.body).wont_include 'Closed Bids'
+    end
+
     it 'includes navigation in response' do
       stub_request(:get, "#{SecureBiddingApp::App.config.API_URL}/projects")
         .to_return(status: 200, body: { projects: [] }.to_json)
