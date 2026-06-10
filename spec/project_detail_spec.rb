@@ -132,5 +132,6 @@ describe 'GET /projects/:id' do
     _(last_response.body).must_include 'Managed Project'
     _(last_response.body).must_include 'Sealed bids received:'
     _(last_response.body).must_include 'Edit Project'
+    _(last_response.body).wont_include 'Bid Review'
   end
 end

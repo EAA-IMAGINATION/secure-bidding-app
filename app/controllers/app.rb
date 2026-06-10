@@ -71,22 +71,6 @@ module SecureBiddingApp
     # Routes for account management
     route('account') do |routing|
       routing.on String do |username|
-        routing.get do
-          require_login!(routing)
-          return routing.redirect("/account/#{@current_account['username']}") if @current_account['username'] != username
-
-          profile = FetchAccountByUsername.new(App.config).call(
-            username: username,
-            auth_token: get_auth_token
-          )
-          api_key = profile['api_key']
-          view :account, locals: { account: profile, current_account: @current_account, api_key: api_key }
-        rescue ApiClient::ApiError => e
-          response.status = e.status.to_i
-          flash.now[:error] = api_error_message(e, 'Unable to load your account')
-          view :account, locals: { account: @current_account, current_account: @current_account }
-        end
-
         routing.on 'edit' do
           routing.get do
             require_login!(routing)
@@ -116,6 +100,22 @@ module SecureBiddingApp
             require_login!(routing)
             handle_resend_account_verification(routing, username)
           end
+        end
+
+        routing.get do
+          require_login!(routing)
+          return routing.redirect("/account/#{@current_account['username']}") if @current_account['username'] != username
+
+          profile = FetchAccountByUsername.new(App.config).call(
+            username: username,
+            auth_token: get_auth_token
+          )
+          api_key = profile['api_key']
+          view :account, locals: { account: profile, current_account: @current_account, api_key: api_key }
+        rescue ApiClient::ApiError => e
+          response.status = e.status.to_i
+          flash.now[:error] = api_error_message(e, 'Unable to load your account')
+          view :account, locals: { account: @current_account, current_account: @current_account }
         end
       end
     end
