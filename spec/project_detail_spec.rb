@@ -112,6 +112,8 @@ describe 'GET /projects/:id' do
         update: true,
         destroy: true,
         manage_memberships: true,
+        assigned_owner: false,
+        admin_access: true,
         manage_milestones: true,
         view_bid_count: true
       }
@@ -132,6 +134,8 @@ describe 'GET /projects/:id' do
     _(last_response.body).must_include 'Managed Project'
     _(last_response.body).must_include 'Sealed bids received:'
     _(last_response.body).must_include 'Edit Project'
+    _(last_response.body).must_include 'Platform admin access'
+    _(last_response.body).wont_include 'Assigned project owner'
     _(last_response.body).wont_include 'Bid Review'
   end
 end

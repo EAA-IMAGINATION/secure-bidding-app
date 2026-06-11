@@ -11,7 +11,9 @@ module SecureBiddingApp
       'create' => 'create',
       'view_bids' => 'view_bid_submissions',
       'manage_owners' => 'manage_memberships',
-      'is_owner' => 'manage_memberships',
+      'is_owner' => 'assigned_owner',
+      'assigned_owner' => 'assigned_owner',
+      'admin_access' => 'admin_access',
       'view_bid_count' => 'view_bid_count',
       'manage_milestones' => 'manage_milestones',
       'award_bid' => 'award_bid',
@@ -21,7 +23,8 @@ module SecureBiddingApp
       'view_as_awarded_bidder' => 'view_as_awarded_bidder',
       'has_bid' => 'has_bid_submission',
       'available_for_bidding' => 'available_for_bidding',
-      'track_open_bid' => 'track_open_bid'
+      'track_open_bid' => 'track_open_bid',
+      'accept_ownership' => 'accept_ownership'
     }.freeze
 
     def self.from_hash(data)

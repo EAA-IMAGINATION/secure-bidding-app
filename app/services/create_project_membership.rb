@@ -10,17 +10,29 @@ module SecureBiddingApp
       @client = ApiClient.new(config.API_URL)
     end
 
-    # account_id: ID of the account to add
+    # username: invitee username (preferred)
+    # account_id: legacy UUID lookup
     # auth_token: optional bearer token (required for owner/admin actions)
-    def call(project_id:, account_id:, auth_token: nil)
+    def call(project_id:, username: nil, account_id: nil, auth_token: nil)
       headers = {}
       headers['Authorization'] = "Bearer #{auth_token}" if auth_token
 
-      body = { 'account_id' => account_id, 'role' => 'project_owner' }
+      body = { 'role' => 'project_owner' }
+      normalized_username = username.to_s.strip
+      normalized_account_id = account_id.to_s.strip
+
+      if normalized_username.empty? && normalized_account_id.empty?
+        raise ValidationError, 'Username is required'
+      end
+
+      if normalized_username.empty?
+        body['account_id'] = normalized_account_id
+      else
+        body['username'] = normalized_username
+      end
 
       @client.post("/projects/#{project_id}/memberships", body, headers: headers)
     rescue ApiClient::ApiError => e
-      # Surface validation errors as ValidationError for controllers to handle
       if e.status == 400 || e.status == 422
         raise ValidationError, (e.body.is_a?(Hash) ? (e.body['error'] || e.body['message']).to_s : e.body.to_s)
       end

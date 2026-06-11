@@ -10,6 +10,20 @@ div class="row justify-content-center mt-4"
           a href="/verify-email" class="btn btn-primary" Verify your email
 
     - if project
+      - if allowed?(project, 'admin_access') && !allowed?(project, 'assigned_owner')
+        div class="alert alert-warning border-warning mb-3" role="alert"
+          strong Platform admin access.
+          span.ms-1 You can manage this member project but are not listed as its owner.
+      - elsif allowed?(project, 'assigned_owner')
+        div class="alert alert-light border mb-3" role="status"
+          strong Assigned project owner.
+      - elsif allowed?(project, 'accept_ownership')
+        div class="alert alert-info border-info mb-3" role="alert"
+          strong Collaboration invite pending.
+          span.ms-1 You have been invited to co-own this project.
+          form method="post" action="/projects/#{project['id']}/memberships/accept" class="d-inline ms-2"
+            button type="submit" class="btn btn-sm btn-primary" Accept collaboration
+
       div class="card mb-4"
         div class="card-body"
           h2 class="card-title mb-3" = project['title']
@@ -54,12 +68,18 @@ div class="row justify-content-center mt-4"
           - if project && allowed?(project, 'manage_owners')
             div class="card mt-3"
               div class="card-body"
-                h5 class="card-title" Manage Owners
-                form method="post" action="/projects/#{project['id']}/memberships" class="row g-2"
+                - if allowed?(project, 'admin_access') && !allowed?(project, 'assigned_owner')
+                  h5 class="card-title" Admin: assign project owners
+                  p.text-muted.small Add a co-owner on behalf of the project creator. Your admin account will not become an owner.
+                - else
+                  h5 class="card-title" Manage Owners
+                form method="post" action="/projects/#{project['id']}/memberships" class="row g-2 align-items-end"
                   div class="col-auto"
-                    input type="text" name="account_id" placeholder="Account ID" class="form-control" required=true
+                    label.form-label.small for="co_owner_username" Username
+                    input type="text" id="co_owner_username" name="username" placeholder="Invitee username" class="form-control" required=true autocomplete="off"
                   div class="col-auto"
-                    button type="submit" class="btn btn-primary" Add Co-owner
+                    button type="submit" class="btn btn-primary" Invite Co-owner
+                p.text-muted.small.mb-0.mt-2 The invitee must sign in and accept collaboration on this project.
 
       / Bidding status for owners while published
       - if project && project['state'] == 'published' && project['bidding_deadline'] && allowed?(project, 'view_bid_count')
@@ -184,7 +204,10 @@ div class="row justify-content-center mt-4"
 
             - if allowed?(project, 'process_payment')
               p class="text-muted"
-                | Freelancer requested payment. Pay the awarded bid amount
+                - if allowed?(project, 'admin_access') && !allowed?(project, 'assigned_owner')
+                  | Admin: freelancer requested payment. Release the awarded bid amount
+                - else
+                  | Freelancer requested payment. Pay the awarded bid amount
                 - if project['awarded_bid_amount_cents']
                   | :
                   strong.ms-1 = number_to_currency(project['awarded_bid_amount_cents'].to_i / 100.0)

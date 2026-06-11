@@ -51,9 +51,15 @@ describe 'My projects page' do
     _(last_response.status).must_equal 302
   end
 
-  def project_payload(id:, title:, state:, owner: true, freelancer: false)
+  def project_payload(id:, title:, state:, owner: true, freelancer: false, admin: false)
     policy = {}
-    policy['manage_memberships'] = true if owner
+    if owner
+      policy['assigned_owner'] = true
+      policy['manage_memberships'] = true
+    elsif admin
+      policy['admin_access'] = true
+      policy['manage_memberships'] = true
+    end
     policy['view_as_awarded_bidder'] = true if freelancer
     {
       id: id,
@@ -222,5 +228,34 @@ describe 'My projects page' do
     _(last_response.body).must_include 'Closed Owned'
     _(last_response.body).must_include 'Closed Freelancer'
     _(last_response.body).wont_include 'Open Owned'
+  end
+
+  it 'lists admin-managed projects separately from owned projects' do
+    login_as_owner
+    stub_owner_profile
+
+    stub_request(:get, "#{base_url}/projects")
+      .with(headers: { 'Authorization' => "Bearer #{token}" })
+      .to_return(
+        status: 200,
+        body: {
+          projects: [
+            project_payload(id: 'member-owned', title: 'Member Owned', state: 'published', owner: true),
+            project_payload(id: 'admin-only', title: 'Someone Elses Project', state: 'in_progress',
+                            owner: false, admin: true)
+          ]
+        }.to_json,
+        headers: { 'Content-Type' => 'application/json' }
+      )
+
+    get '/projects/my'
+
+    _(last_response.status).must_equal 200
+    _(last_response.body).must_include 'Owned projects'
+    _(last_response.body).must_include 'Member Owned'
+    _(last_response.body).must_include 'Admin access'
+    _(last_response.body).must_include 'Someone Elses Project'
+    _(last_response.body).must_include '>Admin<'
+    _(last_response.body).must_include '>Owner<'
   end
 end

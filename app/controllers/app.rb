@@ -236,18 +236,18 @@ module SecureBiddingApp
         end
 
         routing.on 'memberships' do
-          routing.post do
-            require_login!(routing)
-            require_email_verified!(routing)
-            handle_add_membership_post(routing, project_id)
-          end
-
           routing.on 'accept' do
             routing.post do
               require_login!(routing)
               require_email_verified!(routing)
               handle_accept_membership_post(routing, project_id)
             end
+          end
+
+          routing.post do
+            require_login!(routing)
+            require_email_verified!(routing)
+            handle_add_membership_post(routing, project_id)
           end
         end
 
@@ -667,7 +667,9 @@ module SecureBiddingApp
         'view_bids' => 'view_bid_submissions',
         'manage_owners' => 'manage_memberships',
         'accept_ownership' => 'accept_ownership',
-        'is_owner' => 'manage_memberships',
+        'is_owner' => 'assigned_owner',
+        'assigned_owner' => 'assigned_owner',
+        'admin_access' => 'admin_access',
         'view_bid_count' => 'view_bid_count',
         'manage_milestones' => 'manage_milestones'
       }
@@ -710,22 +712,24 @@ module SecureBiddingApp
     end
 
     def handle_add_membership_post(routing, project_id)
+      username = routing.params['username'].to_s.strip
       account_id = routing.params['account_id'].to_s.strip
-      if account_id.empty?
-        flash.now[:error] = 'Account ID is required'
+      if username.empty? && account_id.empty?
+        flash.now[:error] = 'Username is required'
         response.status = 400
-        project = project_detail_locals(project_id)[:project]
         return view :project_detail, locals: project_detail_locals(project_id)
       end
 
       result = CreateProjectMembership.new(App.config).call(
         project_id: project_id,
-        account_id: account_id,
+        username: username.empty? ? nil : username,
+        account_id: account_id.empty? ? nil : account_id,
         auth_token: get_auth_token
       )
 
       if result.is_a?(Hash) && result['status'] == 'pending'
-        flash[:notice] = 'Invitation sent — user must accept to become project owner'
+        invitee = result['username'] || username
+        flash[:notice] = "Invitation sent to #{invitee} — they must accept to become project owner"
       else
         flash[:notice] = 'User added as project owner'
       end
@@ -764,21 +768,26 @@ module SecureBiddingApp
       projects = FetchProjects.new(App.config).call(auth_token: get_auth_token)
       buckets = partition_my_projects(projects)
       filter = routing.params['filter'].to_s.strip
-      filter = 'all' unless %w[all owned freelancer bids active closed].include?(filter)
+      filter = 'all' unless %w[all owned admin invites freelancer bids active closed].include?(filter)
 
       view :my_projects,
            locals: {
              current_account: @current_account,
              projects: projects,
              owned_projects: buckets[:owned],
+             admin_projects: buckets[:admin],
+             pending_invite_projects: buckets[:pending_invites],
              freelancer_projects: buckets[:freelancer],
              bidder_projects: buckets[:bidder],
              active_owned_projects: buckets[:active_owned],
+             active_admin_projects: buckets[:active_admin],
              active_freelancer_projects: buckets[:active_freelancer],
              active_bidder_projects: buckets[:active_bidder],
              closed_owned_projects: buckets[:closed_owned],
+             closed_admin_projects: buckets[:closed_admin],
              closed_freelancer_projects: buckets[:closed_freelancer],
-             filter: filter
+             filter: filter,
+             platform_admin: admin?(@current_account)
            }
     rescue FetchProjects::ServiceError => e
       flash.now[:error] = "Failed to fetch your projects: #{e.message}"
@@ -788,14 +797,19 @@ module SecureBiddingApp
              current_account: @current_account,
              projects: [],
              owned_projects: [],
+             admin_projects: [],
+             pending_invite_projects: [],
              freelancer_projects: [],
              bidder_projects: [],
              active_owned_projects: [],
+             active_admin_projects: [],
              active_freelancer_projects: [],
              active_bidder_projects: [],
              closed_owned_projects: [],
+             closed_admin_projects: [],
              closed_freelancer_projects: [],
-             filter: 'all'
+             filter: 'all',
+             platform_admin: false
            }
     end
 
@@ -803,25 +817,41 @@ module SecureBiddingApp
 
     def partition_my_projects(projects)
       owned = []
+      admin = []
+      pending_invites = []
       freelancer = []
       bidder = []
 
       (projects || []).each do |project|
-        owned << project if project_owned?(project)
+        if project_pending_invite?(project)
+          pending_invites << project
+        elsif project_owned?(project)
+          owned << project
+        elsif project_admin?(project)
+          admin << project
+        end
         freelancer << project if project_freelancer?(project)
         bidder << project if project_bidder?(project)
       end
 
       {
         owned: owned,
+        admin: admin,
+        pending_invites: pending_invites,
         freelancer: freelancer,
         bidder: bidder,
         active_owned: owned.select { |project| project_active?(project) },
+        active_admin: admin.select { |project| project_active?(project) },
         active_freelancer: freelancer.select { |project| project_active?(project) },
         active_bidder: bidder.select { |project| allowed?(project, 'track_open_bid') },
         closed_owned: owned.select { |project| project_closed?(project) },
+        closed_admin: admin.select { |project| project_closed?(project) },
         closed_freelancer: freelancer.select { |project| project_closed?(project) }
       }
+    end
+
+    def project_admin_only?(project)
+      project_admin?(project) && !project_owned?(project)
     end
 
     def project_active?(project)
@@ -829,7 +859,15 @@ module SecureBiddingApp
     end
 
     def project_owned?(project)
-      allowed?(project, 'manage_memberships') || allowed?(project, 'manage_owners')
+      allowed?(project, 'assigned_owner') || allowed?(project, 'is_owner')
+    end
+
+    def project_admin?(project)
+      allowed?(project, 'admin_access')
+    end
+
+    def project_pending_invite?(project)
+      allowed?(project, 'accept_ownership')
     end
 
     def project_freelancer?(project)
@@ -871,7 +909,11 @@ module SecureBiddingApp
     end
 
     def project_relationship_label(project, fallback = 'Owner')
-      if project_owned?(project) && project_freelancer?(project)
+      if project_pending_invite?(project)
+        'Pending invite'
+      elsif project_admin?(project)
+        'Admin'
+      elsif project_owned?(project) && project_freelancer?(project)
         'Owner, Freelancer'
       elsif project_freelancer?(project)
         'Freelancer'
@@ -923,7 +965,7 @@ module SecureBiddingApp
       {
         project: project,
         current_account: @current_account,
-        is_owner: project.allowed?('manage_memberships')
+        is_owner: project.allowed?('assigned_owner')
       }
     rescue FetchProjectDetail::UnauthorizedError
       clear_current_session!

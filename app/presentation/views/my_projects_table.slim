@@ -25,12 +25,23 @@
               span class="badge #{project_state_badge_class(project['state'])}"
                 = project['state'].to_s.tr('_', ' ').capitalize
             td
-              = project_relationship_label(project, relationship_label)
+              - role_label = project_relationship_label(project, relationship_label)
+              - if role_label == 'Admin'
+                span.badge.bg-secondary = role_label
+              - elsif role_label == 'Pending invite'
+                span.badge.bg-warning.text-dark = role_label
+              - elsif role_label.start_with?('Owner')
+                span.badge.bg-primary = role_label
+              - else
+                = role_label
               - if project['my_bid_submission']
                 span.badge.bg-success.ms-1 Bid submitted
             td
               .btn-group role="group"
                 a.btn.btn-sm.btn-info href="/projects/#{project['id']}" View
+                - if allowed?(project, 'accept_ownership')
+                  form method="post" action="/projects/#{project['id']}/memberships/accept" class="d-inline"
+                    button type="submit" class="btn btn-sm btn-primary" Accept
                 - if allowed?(project, 'edit')
                   a.btn.btn-sm.btn-warning href="/projects/#{project['id']}/edit" Edit
                 - if project['state'] == 'published' && allowed?(project, 'submit_bid') && project['my_bid_submission']

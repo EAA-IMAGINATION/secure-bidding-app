@@ -82,7 +82,12 @@ task :spec do
     'spec/client_side_security_spec.rb ' \
     'spec/account_profile_spec.rb ' \
     'spec/my_projects_spec.rb ' \
-    'spec/fetch_projects_spec.rb'
+    'spec/fetch_projects_spec.rb ' \
+    'spec/project_detail_spec.rb ' \
+    'spec/project_membership_spec.rb ' \
+    'spec/project_flash_messages_spec.rb ' \
+    'spec/ui_flow_spec.rb ' \
+    'spec/taipei_time_spec.rb'
   )
 end
 

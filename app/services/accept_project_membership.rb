@@ -16,7 +16,10 @@ module SecureBiddingApp
       headers = { 'Authorization' => "Bearer #{auth_token}" }
       @client.post("/projects/#{project_id}/memberships/accept", {}, headers: headers)
     rescue ApiClient::ApiError => e
-      raise PermissionError, (e.body.is_a?(Hash) ? (e.body['error'] || e.body['message']).to_s : e.body.to_s) if e.status == 403
+      if [403, 404].include?(e.status.to_i)
+        message = e.body.is_a?(Hash) ? (e.body['error'] || e.body['message']).to_s : e.body.to_s
+        raise PermissionError, message.empty? ? 'No pending collaboration invite found' : message
+      end
 
       raise
     end

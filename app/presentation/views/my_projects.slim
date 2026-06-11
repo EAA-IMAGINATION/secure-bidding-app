@@ -1,19 +1,30 @@
 - filter ||= 'all'
 - owned_projects ||= []
+- admin_projects ||= []
+- pending_invite_projects ||= []
 - freelancer_projects ||= []
 - bidder_projects ||= []
 - active_owned_projects ||= []
+- active_admin_projects ||= []
 - active_freelancer_projects ||= []
 - active_bidder_projects ||= []
 - closed_owned_projects ||= []
+- closed_admin_projects ||= []
 - closed_freelancer_projects ||= []
+- platform_admin ||= false
 
 .container.mt-5
   .row
     .col-12
       h1.mb-3 My Projects
-      p.text-muted.mb-4
-        | Track projects you own, open bids you submitted, and freelancer work awarded to you.
+      - if platform_admin
+        p.text-muted.mb-4
+          | Platform administrator view. Use the
+          strong.ms-1 Admin
+          |  tab for member projects you oversee. Admins are never listed as project owners.
+      - else
+        p.text-muted.mb-4
+          | Track projects you own, open bids you submitted, and freelancer work awarded to you.
 
       ul.nav.nav-pills.mb-4.flex-wrap
         li.nav-item
@@ -22,6 +33,11 @@
           a.nav-link class=("active" if filter == 'active') href="/projects/my?filter=active" Active
         li.nav-item
           a.nav-link class=("active" if filter == 'owned') href="/projects/my?filter=owned" Owned
+        - if platform_admin
+          li.nav-item
+            a.nav-link class=("active" if filter == 'admin') href="/projects/my?filter=admin" Admin
+        li.nav-item
+          a.nav-link class=("active" if filter == 'invites') href="/projects/my?filter=invites" Invites
         li.nav-item
           a.nav-link class=("active" if filter == 'bids') href="/projects/my?filter=bids" My Bids
         li.nav-item
@@ -37,6 +53,22 @@
           .alert.alert-light.border No owned projects yet.
           - if can_create_projects?(@current_account)
             a.btn.btn-primary href="/projects/new" Create New Project
+
+      - if (filter == 'all' || filter == 'admin') && admin_projects.any?
+        h2 class="#{filter == 'admin' ? 'h4 mt-4' : 'h4 mt-5'}" Admin access
+        p.text-muted.small You can perform owner actions on these member projects but are not an assigned owner.
+        == render('my_projects_table', locals: { project_rows: admin_projects, relationship_label: 'Admin' })
+
+      - if filter == 'admin' && admin_projects.empty?
+        .alert.alert-light.border No member projects to manage right now.
+
+      - if (filter == 'all' || filter == 'invites') && pending_invite_projects.any?
+        h2 class="#{filter == 'invites' ? 'h4 mt-4' : 'h4 mt-5'}" Collaboration invites
+        p.text-muted.small Open a project and click Accept collaboration to become a co-owner.
+        == render('my_projects_table', locals: { project_rows: pending_invite_projects, relationship_label: 'Pending invite' })
+
+      - if filter == 'invites' && pending_invite_projects.empty?
+        .alert.alert-light.border No pending collaboration invites.
 
       - if filter == 'all' || filter == 'bids'
         h2.h4.mt-5 Projects you bid on
@@ -60,6 +92,11 @@
         - else
           .alert.alert-light.border No active owned projects right now.
 
+        - if platform_admin && active_admin_projects.any?
+          h2.h4.mt-5 Active (admin access)
+          p.text-muted.small Member projects you manage as platform admin.
+          == render('my_projects_table', locals: { project_rows: active_admin_projects, relationship_label: 'Admin' })
+
         h2.h4.mt-5 Open bids awaiting award
         p.text-muted.small Published projects where you submitted a bid and the owner has not awarded yet.
         - if active_bidder_projects.any?
@@ -80,6 +117,10 @@
           == render('my_projects_table', locals: { project_rows: closed_owned_projects, relationship_label: 'Owner' })
         - else
           .alert.alert-light.border No closed owner projects yet.
+
+        - if platform_admin && closed_admin_projects.any?
+          h2.h4.mt-5 Closed (admin access)
+          == render('my_projects_table', locals: { project_rows: closed_admin_projects, relationship_label: 'Admin' })
 
         h2.h4.mt-5 Completed as freelancer
         - if closed_freelancer_projects.any?

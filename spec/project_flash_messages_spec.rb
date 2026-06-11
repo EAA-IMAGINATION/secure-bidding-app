@@ -61,7 +61,7 @@ describe 'Project flash messages' do
       required_documents: [],
       budget_cents: 100_000,
       state: 'published',
-      bidding_deadline: '2026-06-11T08:00:00+00:00',
+      bidding_deadline: '2027-06-11T08:00:00+00:00',
       policy: {
         show: true,
         update: true,
@@ -85,7 +85,7 @@ describe 'Project flash messages' do
            required_documents: "Proposal\nTimeline",
            budget_cents: '100000',
            state: 'published',
-           bidding_deadline: '2026-06-11T08:00',
+           bidding_deadline: '2027-06-11T08:00',
            nacl_public_key: 'YWJj',
            nacl_encrypted_private_key: '{"ciphertext":"x","nonce":"y","key":"z"}'
          },
