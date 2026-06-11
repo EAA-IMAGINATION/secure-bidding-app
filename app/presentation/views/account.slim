@@ -48,12 +48,27 @@ div class="row justify-content-center mt-4"
           a href="/account/#{account['username']}/edit" class="btn btn-primary" Edit profile
           a href="/auth/logout" class="btn btn-danger" Logout
 
-        - if api_key
-          div class="row top-buffer mt-4"
-            div class="col-sm-12"
-              h3 API Access
-              p class="text-muted mb-2"
-                | Read-only API key (valid for one month). Use this from the command line for read-only access.
+        - api_key_scope ||= '*:read'
+        div class="row top-buffer mt-4"
+          div class="col-sm-12"
+            h3 API Access
+            p class="text-muted mb-2"
+              | Choose a scope, then generate a command-line API key (valid for one month).
+            form method="get" action="/account/#{account['username']}" class="row g-2 align-items-end mb-3"
+              div class="col-md-8"
+                label for="api-key-scope" class="form-label small text-muted" Scope
+                select#api-key-scope name="scope" class="form-select form-select-sm"
+                  option value="*:read" selected=("selected" if api_key_scope == '*:read') Read-only (all resources)
+                  option value="projects:read" selected=("selected" if api_key_scope == 'projects:read') Projects — read only
+                  option value="projects:write" selected=("selected" if api_key_scope == 'projects:write') Projects — read and write
+                  option value="accounts:read" selected=("selected" if api_key_scope == 'accounts:read') Accounts — read only
+                  option value="*:write" selected=("selected" if api_key_scope == '*:write') Full access (all resources)
+              div class="col-md-4"
+                button type="submit" class="btn btn-sm btn-outline-primary w-100" Generate key
+            - if api_key
+              p class="text-muted small mb-2"
+                | Current key scope:
+                code = api_key_scope
               a class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" href="#api_key" role="button" aria-expanded="false" aria-controls="api_key"
                 | Show key
               div id="api_key" class="collapse mt-2"

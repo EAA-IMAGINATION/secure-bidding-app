@@ -106,12 +106,21 @@ module SecureBiddingApp
           require_login!(routing)
           return routing.redirect("/account/#{@current_account['username']}") if @current_account['username'] != username
 
+          api_key_scope = routing.params['scope'].to_s.strip
+          api_key_scope = '*:read' if api_key_scope.empty?
+
           profile = FetchAccountByUsername.new(App.config).call(
             username: username,
-            auth_token: get_auth_token
+            auth_token: get_auth_token,
+            scope: api_key_scope
           )
           api_key = profile['api_key']
-          view :account, locals: { account: profile, current_account: @current_account, api_key: api_key }
+          view :account, locals: {
+            account: profile,
+            current_account: @current_account,
+            api_key: api_key,
+            api_key_scope: profile['api_key_scope'] || api_key_scope
+          }
         rescue ApiClient::ApiError => e
           response.status = e.status.to_i
           flash.now[:error] = api_error_message(e, 'Unable to load your account')
@@ -852,11 +861,11 @@ module SecureBiddingApp
 
     def project_state_badge_class(state)
       case state.to_s
-      when 'saved' then 'bg-primary'
-      when 'published' then 'bg-success'
-      when 'in_progress' then 'bg-info text-dark'
+      when 'saved' then 'bg-primary text-white'
+      when 'published' then 'bg-success text-white'
+      when 'in_progress' then 'bg-info text-white'
       when 'payment_pending' then 'bg-warning text-dark'
-      when 'closed' then 'bg-secondary'
+      when 'closed' then 'bg-secondary text-white'
       else 'bg-light text-dark'
       end
     end

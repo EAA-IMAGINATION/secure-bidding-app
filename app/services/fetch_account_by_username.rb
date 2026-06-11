@@ -6,9 +6,11 @@ module SecureBiddingApp
       @config = config
     end
 
-    def call(username:, auth_token:)
+    def call(username:, auth_token:, scope: nil)
       client = ApiClient.new(@config.API_URL, default_headers: { 'Authorization' => "Bearer #{auth_token}" })
-      res = client.get("/accounts/#{username}")
+      params = {}
+      params['scope'] = scope if scope && !scope.to_s.strip.empty?
+      res = client.get("/accounts/#{username}", params: params)
       Account.from_hash(res, auth_token)
     end
   end

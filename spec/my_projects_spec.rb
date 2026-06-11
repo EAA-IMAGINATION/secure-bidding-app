@@ -188,6 +188,8 @@ describe 'My projects page' do
     _(last_response.body).must_include 'Active as freelancer'
     _(last_response.body).must_include 'In Progress Owned'
     _(last_response.body).must_include 'In progress'
+    _(last_response.body).must_include 'badge bg-info text-white'
+    _(last_response.body).wont_include 'badge bg-info text-dark'
     _(last_response.body).must_include 'Payment Pending Freelancer'
     _(last_response.body).must_include 'Payment pending'
     _(last_response.body).wont_include 'Closed Owned'

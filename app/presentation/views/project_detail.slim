@@ -16,11 +16,11 @@ div class="row justify-content-center mt-4"
 
           p class="mb-2"
             strong State:
-            span class="badge bg-secondary ms-1" = project['state'].to_s.tr('_', ' ').capitalize
+            span class="badge #{project_state_badge_class(project['state'])} ms-1" = project['state'].to_s.tr('_', ' ').capitalize
           - if project['payment_status'] && project['payment_status'] != 'none'
             p class="mb-2"
               strong Payment:
-              span class="badge bg-info text-dark ms-1" = project['payment_status'].to_s.tr('_', ' ').capitalize
+              span class="badge bg-info text-white ms-1" = project['payment_status'].to_s.tr('_', ' ').capitalize
 
           p class="mb-2"
             strong Budget:

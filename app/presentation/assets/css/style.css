@@ -37,3 +37,12 @@ body {
   margin-left: auto;
   margin-right: auto;
 }
+
+/* Cerulean bg-info/bg-primary are dark; force legible badge text everywhere */
+.badge.bg-primary,
+.badge.bg-secondary,
+.badge.bg-success,
+.badge.bg-info,
+.badge.bg-danger {
+  color: #fff;
+}

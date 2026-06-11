@@ -37,19 +37,23 @@ describe 'Account profile flow' do
     _(last_response.status).must_equal 302
   end
 
-  def stub_profile_get(username: account_username, email: account_email, email_verified: true)
+  def stub_profile_get(username: account_username, email: account_email, email_verified: true, api_key_scope: '*:read')
     body = {
       id: account_id,
       username: username,
       email: email,
       email_verified: email_verified,
-      system_roles: %w[bidder]
+      system_roles: %w[bidder],
+      api_key: 'test-api-key',
+      api_key_scope: api_key_scope
     }.to_json
     headers = { 'Content-Type' => 'application/json' }
 
     stub_request(:get, "#{base_url}/accounts/#{account_id}")
       .to_return(status: 200, body: body, headers: headers)
+
     stub_request(:get, "#{base_url}/accounts/#{username}")
+      .with(query: { 'scope' => api_key_scope })
       .to_return(status: 200, body: body, headers: headers)
   end
 
@@ -72,6 +76,19 @@ describe 'Account profile flow' do
     _(last_response.body).must_include 'Verified'
     _(last_response.body).must_include 'Edit profile'
     _(last_response.body).wont_include 'Resend verification'
+    _(last_response.body).must_include 'API Access'
+    _(last_response.body).must_include 'Generate key'
+  end
+
+  it 'requests a customizable API key scope from the account page' do
+    login_as
+    stub_profile_get(api_key_scope: 'projects:read')
+
+    get '/account/demo-user', scope: 'projects:read'
+
+    _(last_response.status).must_equal 200
+    _(last_response.body).must_include 'projects:read'
+    _(last_response.body).must_include 'test-api-key'
   end
 
   it 'shows all profile roles including activity-derived roles' do
@@ -89,6 +106,7 @@ describe 'Account profile flow' do
     stub_request(:get, "#{base_url}/accounts/#{account_id}")
       .to_return(status: 200, body: profile_body, headers: headers)
     stub_request(:get, "#{base_url}/accounts/#{account_username}")
+      .with(query: { 'scope' => '*:read' })
       .to_return(status: 200, body: profile_body, headers: headers)
 
     get '/account/demo-user'
@@ -290,8 +308,11 @@ describe 'Account profile flow' do
         headers: { 'Content-Type' => 'application/json' }
       }
     ]
-    stub_request(:get, "#{base_url}/accounts/#{account_id}").to_return(*profile_responses)
-    stub_request(:get, "#{base_url}/accounts/#{account_username}").to_return(*profile_responses)
+    stub_request(:get, "#{base_url}/accounts/#{account_id}")
+      .to_return(*profile_responses)
+    stub_request(:get, "#{base_url}/accounts/#{account_username}")
+      .with(query: { 'scope' => '*:read' })
+      .to_return(*profile_responses)
 
     stub_request(:patch, "#{base_url}/accounts/#{account_id}")
       .to_return(
