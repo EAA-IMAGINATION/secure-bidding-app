@@ -171,8 +171,51 @@ describe 'Admin users management' do
 
     _(last_response.status).must_equal 200
     _(last_response.body).must_include 'Manage role for admin-target'
+    _(last_response.body).must_include 'platform admin access'
+    _(last_response.body).must_include 'Save Role'
+    _(last_response.body).wont_include 'Assign Role'
     _(last_response.body).must_match(/<option[^>]*selected[^>]*value="admin"|<option[^>]*value="admin"[^>]*selected/)
     _(last_response.body).wont_match(/<option[^>]*selected[^>]*value="member"|<option[^>]*value="member"[^>]*selected/)
+    _(last_response.body).wont_include '-- Select a role --'
+  end
+
+  it 'shows Manage Role for another admin in the users dashboard' do
+    login_as_admin
+    other_admin_id = 'admin-456'
+
+    stub_request(:get, "#{base_url}/accounts")
+      .with(headers: { 'Authorization' => "Bearer #{token}" })
+      .to_return(
+        status: 200,
+        body: {
+          accounts: [
+            {
+              id: other_admin_id,
+              username: 'other-admin',
+              email: 'other@example.com',
+              system_role: 'admin',
+              email_verified: true,
+              capabilities: { admin: true, can_manage_accounts: true }
+            },
+            {
+              id: 'member-789',
+              username: 'member-user',
+              email: 'member@example.com',
+              system_role: 'member',
+              email_verified: true
+            }
+          ]
+        }.to_json,
+        headers: { 'Content-Type' => 'application/json' }
+      )
+
+    get '/admin/users'
+
+    _(last_response.status).must_equal 200
+    _(last_response.body).must_include "/admin/users/#{other_admin_id}/roles"
+    _(last_response.body).must_include 'Manage Role'
+    _(last_response.body).wont_match(%r{/admin/users/#{other_admin_id}/roles[^>]*>Promote<})
+    _(last_response.body).must_include 'Promote'
   end
 
   it 'does not offer role management for the current admin in the users dashboard' do

@@ -5,18 +5,27 @@ div class="row justify-content-center mt-4"
     - if user
       div class="card"
         div class="card-body"
-          h2 class="card-title mb-4"
+          h2 class="card-title mb-2"
             = "Manage role for #{user['username']}"
+
+          - if admin_role_user?(user)
+            p class="text-muted mb-4"
+              | This account has platform admin access. Choose Member below to revoke admin access.
+          - else
+            p class="text-muted mb-4"
+              | Assign platform admin or member access for this account.
 
           form method="post" action="/admin/users/#{user['id']}/roles"
             div class="mb-3"
               label for="system_role" class="form-label" Account role
               select class="form-select" id="system_role" name="system_role" required="true"
-                option value="" disabled="true" selected="true" -- Select a role --
+                - unless current_role && !current_role.to_s.strip.empty?
+                  option value="" disabled="true" selected="true" -- Select a role --
                 - roles.each do |role|
                   option value=role selected=(current_role == role)
                     = role == 'admin' ? 'Admin' : 'Member'
 
-            button type="submit" class="btn btn-primary w-100" Update Role
+            button type="submit" class="btn btn-primary w-100"
+              = admin_role_user?(user) ? 'Save Role' : 'Assign Role'
     - else
       div class="alert alert-danger" User not found

@@ -634,6 +634,10 @@ module SecureBiddingApp
       can_manage_accounts?(current_account) && !same_account?(user, current_account)
     end
 
+    def role_action_label(user)
+      admin_role_user?(user) ? 'Manage Role' : 'Promote'
+    end
+
     def admin?(current_account)
       return false unless current_account
 
