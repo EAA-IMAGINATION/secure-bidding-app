@@ -33,8 +33,15 @@ module SecureBiddingApp
       value.empty? ? GOOGLE_SCOPE_DEFAULT : value
     end
 
+    def sso_enabled?
+      App.config.GOOGLE_CLIENT_ID.to_s.strip != ''
+    end
+
+    # Mint a fresh CSRF state and return the Google authorize URL. Called only
+    # from GET /auth/sso so state is stored in the same request as the redirect.
     def sso_login_url(session)
-      state = (session['sso_state'] ||= SecureRandom.hex(16))
+      state = SecureRandom.hex(16)
+      session['sso_state'] = state
       google_oauth_url(App.config, state)
     end
 
@@ -42,8 +49,12 @@ module SecureBiddingApp
       @login_route = '/auth/login'
 
       routing.is 'login' do
-        routing.get { view :login, locals: { google_oauth_url: sso_login_url(session) } }
+        routing.get { view :login, locals: { sso_enabled: sso_enabled? } }
         routing.post { handle_login_post(routing) }
+      end
+
+      routing.is 'sso' do
+        routing.get { handle_sso_start(routing) }
       end
 
       routing.is 'sso_callback' do
@@ -119,7 +130,16 @@ module SecureBiddingApp
 
       flash.now[:error] = message || 'Username and password did not match our records'
       response.status = status
-      view :login, locals: { google_oauth_url: sso_login_url(session) }
+      view :login, locals: { sso_enabled: sso_enabled? }
+    end
+
+    def handle_sso_start(routing)
+      unless sso_enabled?
+        flash[:error] = 'Google sign-in is not configured'
+        return routing.redirect '/auth/login'
+      end
+
+      routing.redirect sso_login_url(session)
     end
 
     def handle_sso_callback(routing)

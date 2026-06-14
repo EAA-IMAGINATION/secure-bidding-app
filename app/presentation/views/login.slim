@@ -8,9 +8,9 @@ div class="row justify-content-center"
           | Sign in to your account, or register for email verification and bidding access.
           a href="/register"  Register here
 
-        - if google_oauth_url
+        - if sso_enabled
           div class="d-grid mb-4"
-            a.btn.btn-outline-dark.btn-lg href=google_oauth_url
+            a.btn.btn-outline-dark.btn-lg href="/auth/sso"
               | Sign in with Google
 
         form method="post" action="/auth/login" id="form-login" accept-charset="UTF-8"

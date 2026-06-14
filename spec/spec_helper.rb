@@ -2,6 +2,10 @@
 
 ENV['RACK_ENV'] = 'test'
 
+ENV['GOOGLE_CLIENT_ID'] ||= 'test-client-id.apps.googleusercontent.com'
+ENV['GOOGLE_CLIENT_SECRET'] ||= 'test-client-secret'
+ENV['GOOGLE_REDIRECT_URI'] ||= 'http://localhost:9292/auth/sso_callback'
+
 require 'minitest/autorun'
 require 'minitest/spec'
 require 'rack/test'

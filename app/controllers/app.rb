@@ -39,7 +39,7 @@ module SecureBiddingApp
       routing.public
       routing.assets
 
-      @current_account = sync_current_account_from_api(@current_account)
+      @current_account = sync_current_account_from_api(@current_account) unless skip_session_sync?(request)
 
       routing.multi_route
 
@@ -336,6 +336,10 @@ module SecureBiddingApp
 
     def load_profile_account
       apply_account_to_session!(merge_profile_account(@current_account, get_auth_token))
+    end
+
+    def skip_session_sync?(request)
+      %w[/auth/login /auth/sso /auth/sso_callback].include?(request.path)
     end
 
     def sync_current_account_from_api(account)
