@@ -205,4 +205,61 @@ describe SecureBiddingApp::RoutingHelpers do
     req = FakeRequest.new('http', 'http://example.com/path')
     _(req.extend(SecureBiddingApp::RoutingHelpers).redirect_http_to_https).must_equal 'https://example.com/path'
   end
+
+  class CanonicalHostRequest
+    attr_reader :host, :path, :query_string
+
+    def initialize(host, path, query_string = '')
+      @host = host
+      @path = path
+      @query_string = query_string
+    end
+
+    def redirect(url)
+      url
+    end
+  end
+
+  it 'redirects bare domain to canonical host from APP_URL in production' do
+    req = CanonicalHostRequest.new('freelanceprocurementhub.tech', '/auth/sso')
+    helper = req.extend(SecureBiddingApp::RoutingHelpers)
+    def helper.production_host_redirect?
+      true
+    end
+
+    def helper.canonical_app_host
+      'www.freelanceprocurementhub.tech'
+    end
+
+    _(helper.redirect_to_canonical_host).must_equal 'https://www.freelanceprocurementhub.tech/auth/sso'
+  end
+
+  it 'preserves query string when redirecting to canonical host' do
+    req = CanonicalHostRequest.new('freelanceprocurementhub.tech', '/auth/sso_callback', 'state=abc&code=xyz')
+    helper = req.extend(SecureBiddingApp::RoutingHelpers)
+    def helper.production_host_redirect?
+      true
+    end
+
+    def helper.canonical_app_host
+      'www.freelanceprocurementhub.tech'
+    end
+
+    target = helper.redirect_to_canonical_host
+    _(target).must_equal 'https://www.freelanceprocurementhub.tech/auth/sso_callback?state=abc&code=xyz'
+  end
+
+  it 'does not redirect when already on canonical host' do
+    req = CanonicalHostRequest.new('www.freelanceprocurementhub.tech', '/auth/login')
+    helper = req.extend(SecureBiddingApp::RoutingHelpers)
+    def helper.production_host_redirect?
+      true
+    end
+
+    def helper.canonical_app_host
+      'www.freelanceprocurementhub.tech'
+    end
+
+    _(helper.redirect_to_canonical_host).must_be_nil
+  end
 end

@@ -14,6 +14,32 @@ module SecureBiddingApp
 
       redirect url.sub(/^http:/, 'https:')
     end
+
+    # Google OAuth redirect_uri uses APP_URL (www). Session cookies are host-scoped,
+    # so bare-domain visits must redirect before SSO stores sso_state in session.
+    def redirect_to_canonical_host
+      return unless production_host_redirect?
+
+      canonical_host = canonical_app_host
+      return if canonical_host.nil? || host == canonical_host
+
+      target = "https://#{canonical_host}#{path}"
+      target += "?#{query_string}" unless query_string.to_s.empty?
+      redirect target
+    end
+
+    def production_host_redirect?
+      App.environment == :production
+    end
+
+    def canonical_app_host
+      app_url = App.config.APP_URL.to_s.strip
+      return nil if app_url.empty?
+
+      URI.parse(app_url).host
+    rescue URI::InvalidURIError
+      nil
+    end
   end
 
   # Base class for the Secure Bidding Web App
@@ -29,7 +55,10 @@ module SecureBiddingApp
 
     route do |routing|
       routing.extend(RoutingHelpers)
-      routing.redirect_http_to_https if App.environment == :production
+      if App.environment == :production
+        routing.redirect_http_to_https
+        routing.redirect_to_canonical_host
+      end
 
       response['Content-Type'] = 'text/html; charset=utf-8'
       @current_session = CurrentSession.new(session)
